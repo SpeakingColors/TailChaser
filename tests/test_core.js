@@ -109,4 +109,26 @@ function run(sig, params) { const p = TC.withDefaults(params); const an = TC.ana
   const ch = rmsDb(r.o.L, 1.6 * SR, 2.0 * SR) - rmsDb(m.L, 1.6 * SR, 2.0 * SR);
   ok('T9 broadband tail is cut hard in 3 bands', ch < -30, 'change ' + ch.toFixed(1) + ' dB');
 }
+// T10 no bump at the crossovers when one band is cut; T11 smooth reduces clicks --
+{
+  const xo = [250, 3000, 8000]; let worst = -99;
+  for (const [nb, gains] of [[3, [-20, 0, 0]], [3, [0, -20, 0]], [4, [0, 0, -20, 0]]]) {
+    for (let f = 30; f < 18000; f *= 1.12) {
+      const n = SR / 4, x = new Float32Array(n); for (let i = 0; i < n; i++) x[i] = 0.5 * Math.sin(2 * Math.PI * f * i / SR);
+      const an = TC.analyze(x, x, SR, nb, xo), o = new Float32Array(n);
+      for (let b = 0; b < nb; b++) { const g = Math.pow(10, gains[b] / 20); for (let i = 0; i < n; i++) o[i] += g * an.bandL[b][i]; }
+      worst = Math.max(worst, rmsDb(o, n / 2, n) - rmsDb(x, n / 2, n));
+    }
+  }
+  ok('T10 cutting one band never boosts any frequency', worst < 0.1, 'max ' + worst.toFixed(2) + ' dB');
+  function hpf(x, f) { const w = 2 * Math.PI * f / SR, c = Math.cos(w), a = Math.sin(w) / 1.4142, b0 = (1 + c) / 2, b1 = -(1 + c), a0 = 1 + a, a1 = -2 * c, a2 = 1 - a; let x1 = 0, x2 = 0, y1 = 0, y2 = 0; const y = new Float32Array(x.length); for (let i = 0; i < x.length; i++) { const v = (b0 * x[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; }
+  function click(smooth) {
+    const m = mk(3);
+    both(m, b => { for (let i = 0; i < b.length; i++) { const t = i / SR; let v = 0; if (t >= 0.5 && t < 2) v += 0.05 * Math.exp(-(t - 0.5) * 2.5) * (Math.sin(2 * Math.PI * 150 * t) + 0.5 * Math.sin(2 * Math.PI * 330 * t)); for (const h of [0.5, 2]) if (t >= h) v += 0.8 * Math.exp(-(t - h) * 30) * Math.sin(2 * Math.PI * 110 * (t - h)); b[i] = v; } });
+    const r = run(m, { bands: 1, fade: 20, keep: 20, smooth, depth: 60, tailStart: 12, floor: -90 });
+    const a = hpf(hpf(r.o.L, 3000), 3000); let pk = 0; for (let i = Math.round(0.53 * SR); i < Math.round(1.95 * SR); i++) pk = Math.max(pk, Math.abs(a[i])); return 20 * Math.log10(pk + 1e-12);
+  }
+  const c0 = click(0), c3 = click(3);
+  ok('T11 Smooth 3 ms lowers click energy by 10 dB or more', c0 - c3 >= 10, c0.toFixed(1) + ' to ' + c3.toFixed(1) + ' dBFS above 3 kHz');
+}
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall passed'); process.exit(fails ? 1 : 0);

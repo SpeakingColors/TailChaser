@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1 design mockup</title>
+<title>Tail Chaser v1.1 design mockup</title>
 <style>
 /*FONTS*/
 :root{--w:1360px;--h:800px}
@@ -21,6 +21,7 @@ header{display:flex;align-items:center;gap:10px;height:42px}
 .name{font-weight:700;font-size:26px;letter-spacing:.5px;color:var(--ttl)}
 .brand{font-size:15px;color:var(--sky);font-weight:600;margin-left:-4px;margin-top:6px}
 .sp{flex:1}
+button{white-space:nowrap}
 button,select{font:600 15px 'Barlow Condensed',sans-serif;color:var(--tx);background:var(--pn2);border:1px solid var(--ln);border-radius:6px;padding:4px 10px;cursor:pointer;height:28px}
 button:hover,select:hover{border-color:var(--selb)}
 button.on{background:var(--sel);border-color:var(--selb);color:var(--ttl)}
@@ -40,7 +41,7 @@ button.dis{opacity:.4;pointer-events:none}
 #ctl{display:flex;gap:8px}
 .grp{display:flex;flex-direction:column}
 .row{display:flex;gap:2px}
-.knob{width:60px;display:flex;flex-direction:column;align-items:center;cursor:ns-resize}
+.knob{width:54px;display:flex;flex-direction:column;align-items:center;cursor:ns-resize}
 .knob svg{width:46px;height:46px}
 .knob .l{font-size:14px;font-weight:600;color:var(--sky);line-height:14px;margin-top:-2px;text-align:center}
 .knob .v{font:500 12px 'JetBrains Mono',monospace;color:var(--yel);background:var(--dp);border:1px solid var(--ln);border-radius:4px;padding:0 4px;margin-top:2px;white-space:nowrap}
@@ -96,22 +97,23 @@ button.dis{opacity:.4;pointer-events:none}
     <div class="card" id="disp">
      <canvas id="cv"></canvas>
      <div id="chips">
+      <button id="bBands" data-tip="Show one lane per frequency band (low, mid, high) instead of the single combined Cut lane. Technical: only needed to see which band is being cut.">Bands</button>
       <button id="bScan" class="mint" data-tip="Scan the whole clip again. In the plugin the scan runs while the host plays the track once, then the cuts are known and exact. Knob changes after a scan are instant.">Scan</button>
       <span class="chip">Tails <b id="cTails">0</b></span>
       <span class="chip" data-tip="How much of the clip has a cut of 3 dB or more in at least one band.">Tidied <b id="cRem">0</b> %</span>
       <span class="chip">Deepest cut <b id="cMax">0.0</b> dB</span>
-      <span class="chip" data-tip="Zero latency in Scan mode: the plugin reads the cut curve at the host position.">Latency <b>0</b> ms</span>
+      <span class="chip" data-tip="1 band: no delay. With several bands the plugin uses linear phase crossovers so a cut never bumps or dips the sound; those add a small delay that is reported to the host. The exact figure will be measured in the plugin build.">Latency <b id="cLat">0</b></span>
       <span class="sp"></span>
       <span class="chip" style="color:var(--pink)">pink = removed</span>
       <span class="chip" style="color:var(--yel)">&#9650; hit</span>
-      <span class="chip" style="color:var(--amb)">dashed = Floor, drag it</span>
+      <span class="chip" style="color:var(--amb)">dashed = Floor</span>
      </div>
     </div>
     <div id="ctl" class="card" style="padding:6px 6px 8px;justify-content:space-between">
-     <div class="grp"><h3>Bands</h3><div class="row"><div class="seg" id="segB" style="width:130px"><div class="l">Bands</div><div class="b"></div></div><div class="knob-slot" data-k="x1"></div><div class="knob-slot" data-k="x2"></div><div class="knob-slot" data-k="x3"></div></div></div>
+     <div class="grp"><h3>Bands</h3><div class="row"><div class="seg" id="segB" style="width:100px"><div class="l">Bands</div><div class="b"></div></div><div class="knob-slot" data-k="x1"></div><div class="knob-slot" data-k="x2"></div><div class="knob-slot" data-k="x3"></div></div></div>
      <div class="grp"><h3>Find tails</h3><div class="row"><div class="knob-slot" data-k="tailStart"></div><div class="knob-slot" data-k="sens"></div><div class="knob-slot" data-k="guard"></div><div class="knob-slot" data-k="echo"></div></div></div>
      <div class="grp"><h3>Silence in</h3><div class="row"><div class="knob-slot" data-k="floor"></div><div class="knob-slot" data-k="protect"></div></div></div>
-     <div class="grp"><h3>Cut</h3><div class="row"><div class="knob-slot" data-k="keep"></div><div class="knob-slot" data-k="fade"></div><div class="knob-slot" data-k="depth"></div><div class="knob-slot" data-k="curve"></div><div class="knob-slot" data-k="open"></div></div></div>
+     <div class="grp"><h3>Cut</h3><div class="row"><div class="knob-slot" data-k="keep"></div><div class="knob-slot" data-k="fade"></div><div class="knob-slot" data-k="depth"></div><div class="knob-slot" data-k="curve"></div><div class="knob-slot" data-k="open"></div><div class="knob-slot" data-k="smooth"></div></div></div>
      <div class="grp"><h3>Output</h3><div class="row"><div class="knob-slot" data-k="mix"></div></div></div>
     </div>
     <div id="rig">
@@ -130,7 +132,7 @@ button.dis{opacity:.4;pointer-events:none}
     <div class="mcol"><div class="t">OUT</div><canvas id="mOut" width="40" height="320" style="width:40px;height:320px"></canvas><div class="pk" id="pkOut">-inf</div></div>
    </div></div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.1 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -183,7 +185,8 @@ var K=[
  {id:'fade',l:'Fade',min:5,max:1500,def:150,u:' ms',log:1,tip:'How long the fade down takes. Short = gated, tight. Long = smooth and natural.'},
  {id:'depth',l:'Depth',min:0,max:96,def:60,u:' dB',tip:'The most a tail can be turned down. 60 dB is almost silence; 12 dB only tucks the tail back. 0 = untouched.'},
  {id:'curve',l:'Curve',min:-100,max:100,def:0,u:' %',tip:'Shape of the fade. Plus = most of the drop happens early. Minus = the tail holds on, then drops.'},
- {id:'open',l:'Open',min:1,max:30,def:4,u:' ms',tip:'How fast the sound opens again before the next hit. The plugin knows the next hit is coming, so the hit itself is never cut.'},
+ {id:'open',l:'Open',min:3,max:30,def:4,u:' ms',tip:'How fast the sound opens again before the next hit. The plugin knows the next hit is coming, so the hit itself is never cut. 3 ms is the shortest, faster could click on bass.'},
+ {id:'smooth',l:'Smooth',min:0,max:6,def:3,u:' ms',tip:'Rounds the corners of every cut so fast cuts do not click. 0 = off. More = softer edges, a little less punch on very fast fades. Measured: 3 ms lowers click energy by about 14 to 20 dB.'},
  {id:'mix',l:'Mix',min:0,max:100,def:100,u:' %',tip:'Blend of cleaned and original sound. 0 = exactly the original. Use less than 100 to keep some room.'}
 ];
 var KM={};K.forEach(function(k){KM[k.id]=k});
@@ -208,7 +211,7 @@ var sig=null,an=null,der=null,out=null,envIn=null,envOut=null,st=null,delta=null
 var mode='proc',playing=false,srcNode=null,t0c=0,posS=0,gainNode=null,bufs={},scan=1,hover=-1;
 var curName='Default Tidy';
 
-function coreParams(){return{bands:P.bands,xo:[P.x1,P.x2,P.x3],tailStart:P.tailStart,keep:P.keep,fade:P.fade,depth:P.depth,curve:P.curve,guard:P.guard,echo:P.echo,floor:P.floor,protect:P.protect,open:P.open,sens:P.sens,mix:P.mix,amount:P.amount}}
+function coreParams(){return{bands:P.bands,xo:[P.x1,P.x2,P.x3],tailStart:P.tailStart,keep:P.keep,fade:P.fade,depth:P.depth,curve:P.curve,guard:P.guard,echo:P.echo,floor:P.floor,protect:P.protect,open:P.open,sens:P.sens,smooth:P.smooth,mix:P.mix,amount:P.amount}}
 function loadSource(name){
  if(name==='file')return;
  sig=sources[name]();analyseNow()}
@@ -216,7 +219,7 @@ function analyseNow(){var c=coreParams();an=TC.analyze(sig.L,sig.R,SR,c.bands,c.
 function deriveNow(){var c=coreParams();der=TC.derive(an,c);out=TC.render(an,der,sig.L,sig.R);
  envIn=envIn&&envIn.src===sig?envIn:{src:sig,e:TC.envelope(sig.L,sig.R,SR).env};
  envOut=TC.envelope(out.L,out.R,SR).env;st=TC.stats(an,der,sig.L,sig.R,out);delta=null;bufs.proc=null;bufs.delta=null;
- $('#cTails').textContent=st.tails;var nt=der.bands[0].gain.length,cnt=0;for(var q=0;q<nt;q++){for(var bb=0;bb<der.bands.length;bb++){if(der.bands[bb].gain[q]<=-3){cnt++;break}}}$('#cRem').textContent=Math.round(100*cnt/nt);$('#cMax').textContent=st.maxCut.toFixed(1);
+ $('#cTails').textContent=st.tails;$('#cLat').textContent=P.bands===1?'0 ms':'tbd';var nt=der.bands[0].gain.length,cnt=0;for(var q=0;q<nt;q++){for(var bb=0;bb<der.bands.length;bb++){if(der.bands[bb].gain[q]<=-3){cnt++;break}}}$('#cRem').textContent=Math.round(100*cnt/nt);$('#cMax').textContent=st.maxCut.toFixed(1);
  if(playing)restartAudio(pos());draw()}
 var tmr=0,tmr2=0;
 function soon(){clearTimeout(tmr);tmr=setTimeout(deriveNow,40)}
@@ -252,12 +255,13 @@ function refreshKnobs(){for(var id in knobEls)knobEls[id].upd();
 var cv=$('#cv'),g=cv.getContext('2d'),W=0,H=440,dpr=1;
 var BC=['#6CC9F5','#02EBBA','#FFD100','#FF7BB1'];
 function css(n){return getComputedStyle(document.body).getPropertyValue(n).trim()}
-var ML=62,MR=8,TOP=6,LV=232,LANE=40,AX=18;
+var ML=62,MR=8,TOP=6,LV=232,LANE=40,AX=18,showBands=false;
+function calcLV(){var nl=showBands&&an?an.nb:1;LV=440-TOP-8-nl*(LANE+2)-24}
 function sizeCv(){var r=cv.getBoundingClientRect(),s=sc();W=Math.round(r.width/s);dpr=Math.min(2,(window.devicePixelRatio||1)*s);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
 function tx(t){return ML+(t/DUR)*(W-ML-MR)}
 function dbY(d){return TOP+(Math.max(-90,Math.min(0,d))/-90)*LV}
 function draw(){
- if(!sig||!W)return;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+ if(!sig||!W)return;calcLV();g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
  var dp=css('--dp'),gridc=css('--grid'),tx_=css('--tx'),sky=css('--sky'),mint=css('--mint'),pink=css('--pink'),yel=css('--yel'),amb=css('--amb'),dim=css('--dim');
  g.fillStyle=dp;g.fillRect(0,0,W,H);
  var x0=ML,x1=W-MR,n=envIn.e.length,dt=DUR/(n-1);
@@ -280,22 +284,22 @@ function draw(){
  // floor line
  if(P.floor>-89){var fy=dbY(P.floor);g.strokeStyle=amb;g.lineWidth=1.5;g.setLineDash([6,4]);g.beginPath();g.moveTo(x0,fy);g.lineTo(x1,fy);g.stroke();g.setLineDash([]);g.fillStyle=amb;g.fillRect(x1-14,fy-5,12,10);g.font='600 11px JetBrains Mono';g.textAlign='left';g.fillText('Floor '+P.floor,x0+6,fy-8)}
  // lanes
- var ly=TOP+LV+8,xo=[P.x1,P.x2,P.x3],names=[];
- for(var b2=0;b2<an.nb;b2++){var lo=b2===0?'20':fh(xo[b2-1]),hi=b2===an.nb-1?'20k':fh(xo[b2]);names.push(lo+'-'+hi)}
+ var ly=TOP+LV+8,xo=[P.x1,P.x2,P.x3],lanes=[];
+ if(showBands){for(var b2=0;b2<an.nb;b2++){var lo=b2===0?'20':fh(xo[b2-1]),hi=b2===an.nb-1?'20k':fh(xo[b2]);lanes.push({g:der.bands[b2],l:'B'+(b2+1),s:lo+'-'+hi,c:BC[b2]})}}
+ else{var cg=new Float32Array(der.bands[0].gain.length),ct=[],ch=[];for(var q=0;q<cg.length;q++){var m0=0;for(var q2=0;q2<der.bands.length;q2++){if(der.bands[q2].gain[q]<m0)m0=der.bands[q2].gain[q]}cg[q]=m0}der.bands.forEach(function(bb){ct=ct.concat(bb.tails);ch=ch.concat(bb.hits)});lanes.push({g:{gain:cg,tails:ct,hits:ch},l:'CUT',s:'deepest',c:pink})}
  var dmax=Math.max(12,P.depth);
- for(var b3=0;b3<an.nb;b3++){
-  var top=ly+b3*(LANE+2);g.fillStyle='rgba(255,255,255,.04)';g.fillRect(x0,top,x1-x0,LANE);
-  g.fillStyle=BC[b3];g.font='700 12px Barlow Condensed';g.textAlign='right';g.textBaseline='middle';g.fillText('B'+(b3+1),x0-30,top+9);g.font='500 10px JetBrains Mono';g.fillText(names[b3],x0-6,top+24);
-  g.fillStyle=BC[b3];g.fillRect(x0-26,top+3,3,LANE-6);
-  var gb=der.bands[b3];g.save();g.beginPath();g.rect(x0,top,lim-x0,LANE);g.clip();
+ for(var b3=0;b3<lanes.length;b3++){
+  var ln=lanes[b3],top=ly+b3*(LANE+2);g.fillStyle='rgba(255,255,255,.04)';g.fillRect(x0,top,x1-x0,LANE);
+  g.fillStyle=ln.c;g.font='700 12px Barlow Condensed';g.textAlign='right';g.textBaseline='middle';g.fillText(ln.l,x0-30,top+9);g.font='500 10px JetBrains Mono';g.fillText(ln.s,x0-6,top+24);
+  g.fillStyle=ln.c;g.fillRect(x0-26,top+3,3,LANE-6);
+  var gb=ln.g;g.save();g.beginPath();g.rect(x0,top,lim-x0,LANE);g.clip();
   g.fillStyle=pink;g.beginPath();g.moveTo(x0,top);for(var i4=0;i4<gb.gain.length;i4+=2){g.lineTo(tx(i4*dt),top+Math.min(1,-gb.gain[i4]/dmax)*(LANE-2))}g.lineTo(x1,top);g.fill();
-  g.strokeStyle='#fff8';g.lineWidth=1;
-  gb.tails.forEach(function(t){var X=tx(t.t0*dt),X2=tx(t.from*dt);g.strokeStyle=amb;g.beginPath();g.moveTo(X,top);g.lineTo(X,top+LANE);g.stroke()});
+  gb.tails.forEach(function(t){var X=tx(t.t0*dt);g.strokeStyle=amb;g.lineWidth=1;g.beginPath();g.moveTo(X,top);g.lineTo(X,top+LANE);g.stroke()});
   g.fillStyle=yel;gb.hits.forEach(function(h){var X=tx(h.a*dt);g.beginPath();g.moveTo(X,top+LANE-1);g.lineTo(X-3,top+LANE-7);g.lineTo(X+3,top+LANE-7);g.fill()});
   g.restore();
   g.strokeStyle=css('--ln');g.strokeRect(x0+.5,top+.5,x1-x0-1,LANE-1)}
  // axis
- var ay=ly+an.nb*(LANE+2)+2;g.fillStyle=sky;g.font='500 11px JetBrains Mono';g.textAlign='center';g.textBaseline='top';
+ var ay=ly+lanes.length*(LANE+2)+2;g.fillStyle=sky;g.font='500 11px JetBrains Mono';g.textAlign='center';g.textBaseline='top';
  for(var s2=0;s2<=DUR;s2++)g.fillText(s2+'s',tx(s2),ay);
  // scan line
  if(scan<1){g.strokeStyle=mint;g.lineWidth=2;g.beginPath();g.moveTo(lim,TOP);g.lineTo(lim,ay);g.stroke()}
@@ -367,6 +371,8 @@ $('#fFile').onchange=function(){var f=this.files[0];if(!f||!ctx)return;var fr=ne
  stopAudio();posS=0;var n=Math.min(buf.length,Math.floor(30*buf.sampleRate)),L=new Float32Array(n),R=new Float32Array(n);buf.copyFromChannel(L,0);buf.copyFromChannel(R,buf.numberOfChannels>1?1:0);
  SR=buf.sampleRate;DUR=n/SR;sig={L:L,R:R};envIn=null;bufs={};analyseNow();scan=0},function(){alert('Could not read that file.')})};fr.readAsArrayBuffer(f)};
 $('#bScan').onclick=function(){scan=0;draw()};
+function amtVis(){var r=$('#amtRow');if(r)r.style.display=showBands?'flex':'none'}
+$('#bBands').onclick=function(){showBands=!showBands;this.classList.toggle('on',showBands);amtVis();draw()};
 
 /* ---------- presets ---------- */
 function allPresets(){return FACT.map(function(f){return{n:f.n,p:f.p,f:1}}).concat(user.map(function(u){return{n:u.n,p:u.p,f:0}}))}
@@ -410,7 +416,7 @@ $('#bPrint').onclick=function(){openDlg('<h2>Print the result</h2><p><b>Write au
 
 /* ---------- per band amounts in lanes: small row under display ---------- */
 function buildAmounts(){var row=$('#amtRow');if(!row){row=document.createElement('div');row.id='amtRow';row.style.cssText='display:flex;gap:10px;margin-top:4px;align-items:center';$('#chips').parentNode.insertBefore(row,$('#chips'))}
- row.innerHTML='<span class="chip" style="color:var(--ttl)" data-tip="How much of Depth each band gets. Turn a band down to leave its tails, for example keep the low band natural.">Band amount</span>';
+ row.style.display=showBands?'flex':'none';row.innerHTML='<span class="chip" style="color:var(--ttl)" data-tip="How much of Depth each band gets. Turn a band down to leave its tails, for example keep the low band natural.">Band amount</span>';
  for(var b=0;b<P.bands;b++){(function(b){var s=document.createElement('label');s.style.cssText='display:flex;align-items:center;gap:4px;font:600 13px Barlow Condensed;color:'+BC[b];s.innerHTML='B'+(b+1)+'<input type="range" min="0" max="100" value="'+P.amount[b]+'" style="width:110px;accent-color:'+BC[b]+'"><span class="chip" style="min-width:48px;text-align:center">'+P.amount[b]+' %</span>';
   var r=$('input',s),v=$('.chip',s);r.oninput=function(){P.amount[b]=+r.value;v.textContent=r.value+' %';soon()};r.ondblclick=function(){r.value=100;r.oninput()};row.appendChild(s)})(b)}}
 

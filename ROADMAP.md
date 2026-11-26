@@ -1,8 +1,8 @@
 # Roadmap
 
 Done
-- Detection core in JS (core/tailchaser_core.js), 17 synthetic tests (tests/test_core.js)
-- Design mockup v1 (docs/mockups/TailChaser_mockup_v1.html)
+- Detection core in JS (core/tailchaser_core.js), 19 synthetic tests (incl. crossover ripple and click tests) (tests/test_core.js)
+- Design mockup v1.1 (docs/mockups/TailChaser_mockup_v1.1.html): combined Cut lane, Bands view toggle, Smooth knob
 
 Next
 - C++/JUCE port of the core with a parity test against the JS core
@@ -18,3 +18,6 @@ Next
 Known limits
 - Tested on synthetic signals only, not yet on real music or by ear
 - Ghost notes after a loud hit can count as echoes: lower Echo
+
+Latency note
+- 1 band: no delay. Several bands: the core uses zero-phase crossovers (measured: no boost or dip when one band is cut). The plugin needs linear phase FIR crossovers that add a reported delay; the figure will be measured in the port.

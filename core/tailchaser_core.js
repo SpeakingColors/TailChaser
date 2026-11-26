@@ -23,7 +23,8 @@
     echo: 8,         // dB: a hit this far under the last hit is an echo (0 = off)
     floor: -70,      // dB: quieter than this counts as silence (-90 = off)
     protect: 12,     // ms after a hit where no tail may start
-    open: 4,         // ms to open before the next hit
+    open: 4,         // ms to open before the next hit (3 ms minimum, 1 ms could click on bass)
+    smooth: 3,       // ms: rounds the corners of every cut (0 = off, max 6)
     sens: 6,         // dB rise that counts as a hit
     mix: 100,        // % wet
     amount: [100, 100, 100, 100] // % of depth per band
@@ -55,13 +56,27 @@
   }
   function lr4(type, f, sr, x) { var c = biquad(type, f, sr); return run(c, run(c, x)); }
 
-  /* Split one channel into n bands. Each band is a 4th order low pass of what
-     is left; the top band is the remainder. Because every high part is the
-     input minus the low part, the bands add back to the input exactly. */
+  /* Zero-phase 4th order low pass (same size as LR4: -6 dB at the corner):
+     a 2nd order Butterworth run forward, then backward. The offline core can
+     do this because the whole clip is known; the plugin needs a linear phase
+     FIR with reported latency to match it. */
+  function zp(type, f, sr, x) {
+    var c = biquad(type, f, sr), y = run(c, x), n = y.length, r = new Float32Array(n);
+    for (var i = 0; i < n; i++) r[i] = y[n - 1 - i];
+    var z = run(c, r), o = new Float32Array(n);
+    for (var j = 0; j < n; j++) o[j] = z[n - 1 - j];
+    return o;
+  }
+
+  /* Split one channel into n bands. Each band is a zero-phase low pass of what
+     is left; the top band is the remainder. Every band response is real and
+     between 0 and 1, and the bands add back to the input exactly, so any mix
+     of band gains lands between the smallest and the largest gain: no bump or
+     dip at the crossovers. */
   function split(x, sr, n, xo) {
     var out = [], rest = x;
     for (var b = 0; b < n - 1; b++) {
-      var lo = lr4('lp', xo[b], sr, rest), hi = new Float32Array(rest.length);
+      var lo = zp('lp', xo[b], sr, rest), hi = new Float32Array(rest.length);
       for (var i = 0; i < rest.length; i++) hi[i] = rest[i] - lo[i];
       out.push(lo); rest = hi;
     }
@@ -122,7 +137,7 @@
     }
     var depth = p.depth * (amountPct / 100);
     if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits };
-    var keepH = ms(p.keep), fadeH = Math.max(1, ms(p.fade)), openH = Math.max(1, ms(p.open)), leadH = 8;
+    var keepH = ms(p.keep), fadeH = Math.max(1, ms(p.fade)), openH = Math.max(3, ms(p.open)), leadH = 8;
     var slopeMin = 30 * (p.guard / 100); // dB per second
     var kk = Math.pow(2, (p.curve / 100) * 2);
     for (var h = 0; h < hits.length; h++) {
@@ -160,7 +175,24 @@
       }
       tails.push({ t0: t0, from: iF, to: b >= N ? N - 1 : rs, peak: P });
     }
-    return { gain: gain, tails: tails, hits: hits };
+    return { gain: smoothDb(gain, p.smooth), tails: tails, hits: hits };
+  }
+
+  /* Round the corners of a dB gain curve with a triangular kernel. Zero stays
+     exactly zero wherever all neighbours are zero, so bypass stays bit exact.
+     Max 6 hops each side: the open ramp ends 8 ms before a hit, so a hit is
+     never touched. */
+  function smoothDb(g, s) {
+    var h = Math.max(0, Math.min(6, Math.round(s || 0)));
+    if (!h) return g;
+    var N = g.length, o = new Float32Array(N), tot = (h + 1) * (h + 1);
+    for (var i = 0; i < N; i++) {
+      if (g[i] === 0) { var z = true; for (var k = -h; k <= h; k++) { var j = i + k; if (j >= 0 && j < N && g[j] !== 0) { z = false; break; } } if (z) continue; }
+      var a = 0;
+      for (var k2 = -h; k2 <= h; k2++) { var j2 = i + k2; if (j2 < 0) j2 = 0; if (j2 >= N) j2 = N - 1; a += g[j2] * (h + 1 - Math.abs(k2)); }
+      o[i] = a / tot;
+    }
+    return o;
   }
 
   /* Derive the gain curves for all bands from the analysis. Fast: call it on
