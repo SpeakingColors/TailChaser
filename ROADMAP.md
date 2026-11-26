@@ -2,7 +2,7 @@
 
 Done
 - Detection core in JS (core/tailchaser_core.js), 19 synthetic tests (incl. crossover ripple and click tests) (tests/test_core.js)
-- Design mockup v1.1 (docs/mockups/TailChaser_mockup_v1.1.html): combined Cut lane, Bands view toggle, Smooth knob
+- Design mockup v1.2 (docs/mockups/TailChaser_mockup_v1.2.html): combined Cut lane, Bands view toggle, Smooth knob, pink and cut-start marker drawn from the real gain curve
 
 Next
 - C++/JUCE port of the core with a parity test against the JS core

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1.1 design mockup</title>
+<title>Tail Chaser v1.2 design mockup</title>
 <style>
 /*FONTS*/
 :root{--w:1360px;--h:800px}
@@ -106,7 +106,7 @@ button.dis{opacity:.4;pointer-events:none}
       <span class="sp"></span>
       <span class="chip" style="color:var(--pink)">pink = removed</span>
       <span class="chip" style="color:var(--yel)">&#9650; hit</span>
-      <span class="chip" style="color:var(--amb)">dashed = Floor</span>
+      <span class="chip" style="color:var(--amb)">orange = cut starts</span>
      </div>
     </div>
     <div id="ctl" class="card" style="padding:6px 6px 8px;justify-content:space-between">
@@ -132,7 +132,7 @@ button.dis{opacity:.4;pointer-events:none}
     <div class="mcol"><div class="t">OUT</div><canvas id="mOut" width="40" height="320" style="width:40px;height:320px"></canvas><div class="pk" id="pkOut">-inf</div></div>
    </div></div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.1 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.2 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -218,9 +218,12 @@ function loadSource(name){
 function analyseNow(){var c=coreParams();an=TC.analyze(sig.L,sig.R,SR,c.bands,c.xo);deriveNow()}
 function deriveNow(){var c=coreParams();der=TC.derive(an,c);out=TC.render(an,der,sig.L,sig.R);
  envIn=envIn&&envIn.src===sig?envIn:{src:sig,e:TC.envelope(sig.L,sig.R,SR).env};
- envOut=TC.envelope(out.L,out.R,SR).env;st=TC.stats(an,der,sig.L,sig.R,out);delta=null;bufs.proc=null;bufs.delta=null;
+ envOut=effOut();st=TC.stats(an,der,sig.L,sig.R,out);delta=null;bufs.proc=null;bufs.delta=null;
  $('#cTails').textContent=st.tails;$('#cLat').textContent=P.bands===1?'0 ms':'tbd';var nt=der.bands[0].gain.length,cnt=0;for(var q=0;q<nt;q++){for(var bb=0;bb<der.bands.length;bb++){if(der.bands[bb].gain[q]<=-3){cnt++;break}}}$('#cRem').textContent=Math.round(100*cnt/nt);$('#cMax').textContent=st.maxCut.toFixed(1);
  if(playing)restartAudio(pos());draw()}
+function effOut(){var ei=envIn.e,nh=ei.length,mx=P.mix/100,o=new Float32Array(nh),nb=an.nb;
+ for(var i=0;i<nh;i++){var num=0,den=0;for(var b=0;b<nb;b++){var pw=Math.pow(10,an.envs[b][i]/10),gl=Math.pow(10,der.bands[b].gain[i]/20),ge=1+mx*(gl-1);num+=pw*ge*ge;den+=pw}
+  o[i]=ei[i]+(den>1e-12?10*Math.log10((num+1e-20)/den):0)}return o}
 var tmr=0,tmr2=0;
 function soon(){clearTimeout(tmr);tmr=setTimeout(deriveNow,40)}
 function soonAn(){clearTimeout(tmr2);tmr2=setTimeout(analyseNow,140)}
@@ -294,7 +297,7 @@ function draw(){
   g.fillStyle=ln.c;g.fillRect(x0-26,top+3,3,LANE-6);
   var gb=ln.g;g.save();g.beginPath();g.rect(x0,top,lim-x0,LANE);g.clip();
   g.fillStyle=pink;g.beginPath();g.moveTo(x0,top);for(var i4=0;i4<gb.gain.length;i4+=2){g.lineTo(tx(i4*dt),top+Math.min(1,-gb.gain[i4]/dmax)*(LANE-2))}g.lineTo(x1,top);g.fill();
-  gb.tails.forEach(function(t){var X=tx(t.t0*dt);g.strokeStyle=amb;g.lineWidth=1;g.beginPath();g.moveTo(X,top);g.lineTo(X,top+LANE);g.stroke()});
+  gb.tails.forEach(function(t){var Xa=tx(t.t0*dt),Xb=tx(t.from*dt);if(showBands){g.fillStyle='rgba(255,166,0,.22)';g.fillRect(Xa,top,Math.max(1,Xb-Xa),LANE)}g.strokeStyle=showBands?amb:'rgba(255,166,0,.45)';g.lineWidth=showBands?1.5:1;g.beginPath();g.moveTo(Xb,top);g.lineTo(Xb,top+LANE);g.stroke()});
   g.fillStyle=yel;gb.hits.forEach(function(h){var X=tx(h.a*dt);g.beginPath();g.moveTo(X,top+LANE-1);g.lineTo(X-3,top+LANE-7);g.lineTo(X+3,top+LANE-7);g.fill()});
   g.restore();
   g.strokeStyle=css('--ln');g.strokeRect(x0+.5,top+.5,x1-x0-1,LANE-1)}
