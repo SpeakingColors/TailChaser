@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1.6 design mockup</title>
+<title>Tail Chaser v1.7 design mockup</title>
 <style>
 @font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format('woff2')}
 @font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format('woff2')}
@@ -100,8 +100,9 @@ button.dis{opacity:.4;pointer-events:none}
     <div class="card" id="disp">
      <canvas id="cv"></canvas>
      <div id="chips">
+      <button id="bView" data-tip="Wave: the real waveform, like the clip in your DAW. Removed part in pink, cut region shaded. dB: the level in dB, which makes quiet tails look big.">View: Wave</button>
       <button id="bBands" data-tip="Show one lane per frequency band (low, mid, high) instead of the single combined Cut lane. Technical: only needed to see which band is being cut.">Bands</button>
-      <button id="bScan" class="mint" data-tip="Scan the whole clip again. In the plugin the scan runs while the host plays the track once, then the cuts are known and exact. Knob changes after a scan are instant.">Scan</button>
+      <button id="bScan" class="mint" data-tip="Finds every tail automatically and shows it shaded, like a selection in your DAW: orange line = tail starts, faint = kept (Keep), stronger = being cut. In the plugin it scans while the host plays the track once; after that knob changes are instant.">Auto-find tails</button>
       <span class="chip">Tails <b id="cTails">0</b></span>
       <span class="chip" data-tip="Echo delay time in use: found from the repeats (Auto) or set with Echo time. none = no repeat pattern found, so no sound is treated as an echo.">Echo <b id="cEcho">none</b></span>
       <span class="chip" data-tip="How much of the clip has a cut of 3 dB or more in at least one band.">Tidied <b id="cRem">0</b> %</span>
@@ -139,7 +140,7 @@ button.dis{opacity:.4;pointer-events:none}
    <div style="display:flex;justify-content:center;margin:8px 0 4px"><button id="bSync" style="width:130px" data-tip="Keep, Fade and Echo time in note values that follow the song tempo. In the plugin the tempo comes from your DAW.">Sync &middot; <span id="cBpm">128</span> BPM</button></div>
    </div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.6 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.7 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -670,6 +671,7 @@ function draw(){
  var dp=css('--dp'),gridc=css('--grid'),tx_=css('--tx'),sky=css('--sky'),mint=css('--mint'),pink=css('--pink'),yel=css('--yel'),amb=css('--amb'),dim=css('--dim');
  g.fillStyle=dp;g.fillRect(0,0,W,H);
  var x0=ML,x1=W-MR,n=envIn.e.length,dt=DUR/(n-1);
+ if(view==='wave'){drawWave(x0,x1,n,dt,gridc,sky,mint,pink,amb);}else{
  // grid and dB labels
  g.font='500 11px JetBrains Mono,monospace';g.textAlign='right';g.textBaseline='middle';
  for(var d=0;d>=-90;d-=15){var y=dbY(d);g.strokeStyle=gridc;g.lineWidth=1;g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();g.fillStyle=sky;g.fillText(d+' dB',x0-6,y)}
@@ -688,6 +690,7 @@ function draw(){
  g.restore();
  // floor line
  if(P.floor>-89){var fy=dbY(P.floor);g.strokeStyle=amb;g.lineWidth=1.5;g.setLineDash([6,4]);g.beginPath();g.moveTo(x0,fy);g.lineTo(x1,fy);g.stroke();g.setLineDash([]);g.fillStyle=amb;g.fillRect(x1-14,fy-5,12,10);g.font='600 11px JetBrains Mono';g.textAlign='left';g.fillText('Floor '+P.floor,x0+6,fy-8)}
+ }
  // lanes
  var ly=TOP+LV+8,xo=[P.x1,P.x2,P.x3],lanes=[];
  if(showBands){for(var b2=0;b2<an.nb;b2++){var lo=b2===0?'20':fh(xo[b2-1]),hi=b2===an.nb-1?'20k':fh(xo[b2]);lanes.push({g:der.bands[b2],l:'B'+(b2+1),s:lo+'-'+hi,c:BC[b2]})}}
@@ -716,16 +719,54 @@ function draw(){
   var txt='t '+hh.toFixed(2)+' s   in '+envIn.e[hi2].toFixed(1)+'   out '+envOut[hi2].toFixed(1)+'   cut '+gmin.toFixed(1)+' dB';
   g.font='500 12px JetBrains Mono';g.textAlign='left';var w=g.measureText(txt).width+12,bx=Math.min(W-w-4,Math.max(ML+4,tx(hh)+8));g.fillStyle='#000c';g.fillRect(bx,TOP+2,w,18);g.fillStyle=yel;g.textBaseline='middle';g.fillText(txt,bx+6,TOP+11)}
 }
+
+/* Waveform view (default): the real waveform like a DAW clip, left channel on
+   top, right below, scaled to the clip's peak. Original in lavender, cleaned
+   on top in mint, so what is removed shows pink. The pink band behind is the
+   cut region (whole sound turned down 3 dB or more), like a DAW selection. */
+var view='wave',wcache=null;
+function waveCols(arr,cols){var n=arr.length,mn=new Float32Array(cols),mx=new Float32Array(cols);for(var c=0;c<cols;c++){var a=Math.floor(c*n/cols),b=Math.max(a+1,Math.floor((c+1)*n/cols)),lo=0,hi=0;for(var i=a;i<b;i++){var v=arr[i];if(v<lo)lo=v;if(v>hi)hi=v}mn[c]=lo;mx[c]=hi}return{mn:mn,mx:mx}}
+function tailRegions(n){var nb=an.nb,out=[],cur=null;
+ for(var q=0;q<n;q++){var tot=0,tp=0;
+  for(var b=0;b<nb;b++){var pw=Math.pow(10,an.envs[b][q]/10);tot+=pw;var ts=der.bands[b].tails;for(var k=0;k<ts.length;k++){if(q>=ts[k].t0&&q<ts[k].to){tp+=pw;break}}}
+  var on=envIn.e[q]>-90&&tot>0&&tp>=0.5*tot,cutting=Math.max(-90,envOut[q])<Math.max(-90,envIn.e[q])-1;
+  if(on){if(!cur)cur={a:q,c:-1};if(cutting&&cur.c<0)cur.c=q}
+  else if(cur){cur.b=q;if(cur.c<0)cur.c=q;if(cur.b-cur.a>=15)out.push(cur);cur=null}}
+ if(cur){cur.b=n;if(cur.c<0)cur.c=n;if(cur.b-cur.a>=15)out.push(cur)}
+ return out}
+function drawWave(x0,x1,n,dt,gridc,sky,mint,pink,amb){
+ var cols=Math.max(10,Math.round(x1-x0)),key=cols+'|'+(out&&out.L.length)+'|'+(der&&der.bands[0].gain.length);
+ if(!wcache||wcache.k!==key||wcache.o!==out||wcache.s!==sig){var pk=1e-9;for(var i=0;i<sig.L.length;i++){var v=Math.abs(sig.L[i]),w=Math.abs(sig.R[i]);if(v>pk)pk=v;if(w>pk)pk=w}
+  wcache={k:key,o:out,s:sig,pk:pk,iL:waveCols(sig.L,cols),iR:waveCols(sig.R,cols),oL:waveCols(out.L,cols),oR:waveCols(out.R,cols)}}
+ var h=LV/4-3,lanes=[[TOP+3,wcache.iL,wcache.oL,'L'],[TOP+3+LV/2,wcache.iR,wcache.oR,'R']],sc=1/wcache.pk;
+ // Detected tails, like a DAW selection: a stretch counts as tail when most
+ // of the sound there (by power) belongs to a band that is in a detected
+ // tail. Faint = found but kept (Keep time), stronger = being cut.
+ var lim=scan>=1?x1:x0+(x1-x0)*scan,reg=tailRegions(n);
+ reg.forEach(function(r){var xa=tx(r.a*dt),xc=Math.min(lim,tx(r.c*dt)),xb=Math.min(lim,tx(r.b*dt));if(xa>=lim)return;
+  g.fillStyle='rgba(255,19,131,.09)';g.fillRect(xa,TOP,Math.max(0,xc-xa),LV);
+  g.fillStyle='rgba(255,19,131,.24)';if(xb>xc)g.fillRect(xc,TOP,xb-xc,LV);
+  g.fillStyle=amb;g.fillRect(xa,TOP,1.5,LV)});
+ g.font='500 11px JetBrains Mono,monospace';g.textAlign='right';g.textBaseline='middle';
+ lanes.forEach(function(L){var top=L[0],mid=top+h,c=L[1],o=L[2];
+  [[1,'0'],[.5,'-6'],[.25,'-12']].forEach(function(m){[mid-m[0]*h,mid+m[0]*h].forEach(function(y,ii){g.strokeStyle=gridc;g.lineWidth=1;g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();if(ii===0){g.fillStyle=sky;g.fillText(m[1]+' dB',x0-6,y)}})});
+  g.strokeStyle=gridc;g.beginPath();g.moveTo(x0,mid);g.lineTo(x1,mid);g.stroke();
+  g.fillStyle=sky;g.textAlign='left';g.fillText(L[3],x0+4,top+8);g.textAlign='right';
+  for(var col=0;col<c.mn.length;col++){var X=x0+col;g.fillStyle='rgba(205,146,254,.55)';var ya=mid-c.mx[col]*sc*h,yb=mid-c.mn[col]*sc*h;g.fillRect(X,ya,1,Math.max(1,yb-ya));
+   if(X<=lim){g.fillStyle=pink;g.fillRect(X,ya,1,Math.max(1,yb-ya));g.fillStyle=mint;var oa=mid-o.mx[col]*sc*h,ob=mid-o.mn[col]*sc*h;g.fillRect(X,oa,1,Math.max(1,ob-oa))}}
+ });
+ for(var s2=0;s2<=DUR;s2++){g.strokeStyle='rgba(255,255,255,.06)';g.beginPath();g.moveTo(tx(s2),TOP);g.lineTo(tx(s2),TOP+LV);g.stroke()}
+}
 function fh(f){return f>=1000?(f/1000).toFixed(f%1000?1:0)+'k':String(Math.round(f))}
 function pos(){if(playing&&ctx)return((ctx.currentTime-t0c)%DUR+DUR)%DUR;return posS}
 cv.addEventListener('pointermove',function(e){var r=cv.getBoundingClientRect(),s=sc(),x=(e.clientX-r.left)/s,y=(e.clientY-r.top)/s;hover=(x-ML)/(W-ML-MR)*DUR;
- if(dragFloor){setFloorFromY(y)}else{var onF=P.floor>-89&&Math.abs(y-dbY(P.floor))<6&&x>ML;cv.style.cursor=onF?'ns-resize':'crosshair'}draw()});
+ if(dragFloor){setFloorFromY(y)}else{var onF=view==='db'&&P.floor>-89&&Math.abs(y-dbY(P.floor))<6&&x>ML;cv.style.cursor=onF?'ns-resize':'crosshair'}draw()});
 cv.addEventListener('pointerleave',function(){hover=-1;draw()});
 var dragFloor=false;
 function setFloorFromY(y){var d=-((y-TOP)/LV)*90;d=Math.max(-90,Math.min(-30,Math.round(d)));P.floor=d;knobEls.floor.upd();soon()}
 cv.addEventListener('pointerdown',function(e){var r=cv.getBoundingClientRect(),s=sc(),x=(e.clientX-r.left)/s,y=(e.clientY-r.top)/s;
  if(x<ML)return;
- if(Math.abs(y-dbY(Math.max(-90,P.floor)))<8&&y<TOP+LV+4){if(P.floor<=-89){P.floor=-80;knobEls.floor.upd()}dragFloor=true;cv.setPointerCapture(e.pointerId);return}
+ if(view==='db'&&Math.abs(y-dbY(Math.max(-90,P.floor)))<8&&y<TOP+LV+4){if(P.floor<=-89){P.floor=-80;knobEls.floor.upd()}dragFloor=true;cv.setPointerCapture(e.pointerId);return}
  seek((x-ML)/(W-ML-MR)*DUR)});
 cv.addEventListener('pointerup',function(){dragFloor=false});
 function seek(t){t=Math.max(0,Math.min(DUR-.01,t));posS=t;if(playing)startAudio(t);draw()}
@@ -792,6 +833,7 @@ function resync(){K.forEach(function(k){if(k.sync!==undefined&&P.sync){P[k.id]=M
 $('#bSync').onclick=function(){P.sync=P.sync?0:1;resync()};
 $('#iBpm').onchange=function(){var v=+this.value;if(!(v>=40&&v<=300)){this.value=P.bpm;return}P.bpm=v;resync()};
 function amtVis(){var r=$('#amtRow');if(r)r.style.display=showBands?'flex':'none'}
+$('#bView').onclick=function(){view=view==='wave'?'db':'wave';this.textContent='View: '+(view==='wave'?'Wave':'dB');draw()};
 $('#bBands').onclick=function(){showBands=!showBands;this.classList.toggle('on',showBands);amtVis();draw()};
 
 /* ---------- presets ---------- */
