@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1.5 design mockup</title>
+<title>Tail Chaser v1.6 design mockup</title>
 <style>
 /*FONTS*/
 :root{--w:1360px;--h:800px}
@@ -137,7 +137,7 @@ button.dis{opacity:.4;pointer-events:none}
    <div style="display:flex;justify-content:center;margin:8px 0 4px"><button id="bSync" style="width:130px" data-tip="Keep, Fade and Echo time in note values that follow the song tempo. In the plugin the tempo comes from your DAW.">Sync &middot; <span id="cBpm">128</span> BPM</button></div>
    </div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.5 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.6 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -166,12 +166,12 @@ function chord(s,t,l,len){var i0=Math.round(t*SR),n=Math.round(len*SR),fs=[220,2
 function pingpong(src,delay,fb,mix){var n=src.L.length,d=Math.round(delay*SR),out=mk(n),tL=new Float32Array(n),tR=new Float32Array(n);
  for(var i=0;i<n;i++){var fL=i>=d?tR[i-d]:0,fR=i>=d?tL[i-d]:0;tL[i]=src.L[i]*.7+fL*fb;tR[i]=src.R[i]*.7+fR*fb;
   out.L[i]=src.L[i]+(i>=d?tR[i-d]*mix:0);out.R[i]=src.R[i]+(i>=d?tL[i-d]*mix:0)}return out}
-function genDrums(){seed=11;var n=DUR*SR,s=mk(n),B=.46875;for(var b=0;b<16;b++){var t=.2+b*B;if(b%2===0)kick(s,t,.8);if(b%4===2){snare(s,t,.55);addTail(s,t,.12,1.8,.45)}if(b%8===6)snare(s,t+B*.625,.09);hat(s,t+B/2,.22);if(b%4===3)hat(s,t+B/4,.18)}return s}
-function genStab(){seed=22;var n=DUR*SR,d=mk(n),B=.46875;[0,1.5,3,4.5,6,7.5,9,10.5].forEach(function(b){chord(d,.2+b*B,.22,.4)});
- var o=pingpong(d,.3516,.45,.5);var g=mk(n);for(var i=0;i<n;i++){g.L[i]=o.L[i];g.R[i]=o.R[i]}[0,3,6,9].forEach(function(b){addTail(g,.2+b*B,.02,1.2,.3)});return g}
+function genDrums(){seed=11;var n=DUR*SR,s=mk(n),B=.46875;for(var b=0;b<16;b++){var t=.02+b*B;if(b%2===0)kick(s,t,.8);if(b%4===2){snare(s,t,.55);addTail(s,t,.12,1.8,.45)}if(b%8===6)snare(s,t+B*.625,.09);hat(s,t+B/2,.22);if(b%4===3)hat(s,t+B/4,.18)}return s}
+function genStab(){seed=22;var n=DUR*SR,d=mk(n),B=.46875;[0,1.5,3,4.5,6,7.5,9,10.5].forEach(function(b){chord(d,.02+b*B,.22,.4)});
+ var o=pingpong(d,.3516,.45,.5);var g=mk(n);for(var i=0;i<n;i++){g.L[i]=o.L[i];g.R[i]=o.R[i]}[0,3,6,9].forEach(function(b){addTail(g,.02+b*B,.02,1.2,.3)});return g}
 function genMix(){var a=genDrums(),b=genStab(),n=a.L.length,s=mk(n);seed=33;var B=.46875;
  for(var i=0;i<n;i++){s.L[i]=a.L[i]*.8+b.L[i]*.8;s.R[i]=a.R[i]*.8+b.R[i]*.8}
- for(var q=0;q<4;q++){var t0=.2+q*4*B*1,len=Math.round(1.7*SR),i0=Math.round(t0*SR),f=q%2?49:55;for(var i=0;i<len&&i0+i<n;i++){var e=Math.min(1,i/400)*Math.min(1,(len-i)/2000);var v=.28*e*Math.sin(2*Math.PI*f*i/SR);s.L[i0+i]+=v;s.R[i0+i]+=v}}
+ for(var q=0;q<4;q++){var t0=.02+q*4*B*1,len=Math.round(1.7*SR),i0=Math.round(t0*SR),f=q%2?49:55;for(var i=0;i<len&&i0+i<n;i++){var e=Math.min(1,i/400)*Math.min(1,(len-i)/2000);var v=.28*e*Math.sin(2*Math.PI*f*i/SR);s.L[i0+i]+=v;s.R[i0+i]+=v}}
  return s}
 var sources={drums:genDrums,stab:genStab,mix:genMix};
 
@@ -235,7 +235,7 @@ function effOut(){var ei=envIn.e,nh=ei.length,mx=P.mix/100,o=new Float32Array(nh
  for(var i=0;i<nh;i++){var num=0,den=0;for(var b=0;b<nb;b++){var pw=Math.pow(10,an.envs[b][i]/10),gd=der.bands[b].gain[i],gl=Math.pow(10,gd/20),gs=1+mx*(gl-1),gm=1+mx*(Math.pow(10,gd*P.center/100/20)-1),sf=an.sideFrac?an.sideFrac[b][i]:0;num+=pw*((1-sf)*gm*gm+sf*gs*gs);den+=pw}
   o[i]=ei[i]+(den>1e-12?10*Math.log10((num+1e-20)/den):0)}return o}
 var tmr=0,tmr2=0;
-function soon(){clearTimeout(tmr);tmr=setTimeout(deriveNow,40)}
+var lastD=0;function soon(){clearTimeout(tmr);var w=performance.now()-lastD;if(w>=60){lastD=performance.now();deriveNow()}else tmr=setTimeout(function(){lastD=performance.now();deriveNow()},60-w)}
 function soonAn(){clearTimeout(tmr2);tmr2=setTimeout(analyseNow,140)}
 
 /* ---------- knobs ---------- */
@@ -338,7 +338,7 @@ cv.addEventListener('pointerdown',function(e){var r=cv.getBoundingClientRect(),s
  if(Math.abs(y-dbY(Math.max(-90,P.floor)))<8&&y<TOP+LV+4){if(P.floor<=-89){P.floor=-80;knobEls.floor.upd()}dragFloor=true;cv.setPointerCapture(e.pointerId);return}
  seek((x-ML)/(W-ML-MR)*DUR)});
 cv.addEventListener('pointerup',function(){dragFloor=false});
-function seek(t){t=Math.max(0,Math.min(DUR-.01,t));posS=t;if(playing)restartAudio(t);draw()}
+function seek(t){t=Math.max(0,Math.min(DUR-.01,t));posS=t;if(playing)startAudio(t);draw()}
 
 /* ---------- meters ---------- */
 function meter(c,v,pk,gr){var m=c.getContext('2d'),w=c.width,h=c.height;m.clearRect(0,0,w,h);m.fillStyle='#000';m.fillRect(0,0,w,h);
@@ -374,10 +374,21 @@ function mkBuf(L,R){var b=ctx.createBuffer(2,L.length,SR);b.copyToChannel(L,0);b
 function curBuf(){if(mode==='dry'){bufs.dry=bufs.dry||mkBuf(sig.L,sig.R);return bufs.dry}
  if(mode==='delta'){if(!delta){delta=mk(sig.L.length);for(var i=0;i<delta.L.length;i++){delta.L[i]=sig.L[i]-out.L[i];delta.R[i]=sig.R[i]-out.R[i]}}bufs.delta=bufs.delta||mkBuf(delta.L,delta.R);return bufs.delta}
  bufs.proc=bufs.proc||mkBuf(out.L,out.R);return bufs.proc}
-function startAudio(off){if(!ctx)return;ctx.resume();stopSrc();gainNode=gainNode||ctx.createGain();gainNode.gain.value=.8;gainNode.connect(ctx.destination);
- srcNode=ctx.createBufferSource();srcNode.buffer=curBuf();srcNode.loop=true;srcNode.connect(gainNode);srcNode.start(0,off);t0c=ctx.currentTime-off;playing=true;$('#bPlay').textContent='■ Stop'}
-function restartAudio(off){startAudio(off)}
-function stopSrc(){if(srcNode){try{srcNode.onended=null;srcNode.stop()}catch(e){}srcNode.disconnect();srcNode=null}}
+/* Playback never stops while you adjust: each new version of the sound is
+   started at the same position and crossfaded in over 30 ms (old one fades
+   out), so knob moves are heard right away without gaps or clicks. */
+var srcG=null,XF=.03;
+function master(){if(!gainNode){gainNode=ctx.createGain();gainNode.gain.value=.8;gainNode.connect(ctx.destination)}return gainNode}
+function startAudio(off){if(!ctx)return;ctx.resume();stopSrc();var now=ctx.currentTime;
+ srcG=ctx.createGain();srcG.gain.value=1;srcG.connect(master());
+ srcNode=ctx.createBufferSource();srcNode.buffer=curBuf();srcNode.loop=true;srcNode.connect(srcG);srcNode.start(now,off);t0c=now-off;playing=true;$('#bPlay').textContent='\u25A0 Stop'}
+function restartAudio(off){if(!ctx||!playing||!srcNode){startAudio(off);return}
+ var now=ctx.currentTime,el=(now-t0c)%DUR;if(el<0)el+=DUR;
+ var oldS=srcNode,oldG=srcG;if(oldG.gain.cancelAndHoldAtTime)oldG.gain.cancelAndHoldAtTime(now);else{oldG.gain.cancelScheduledValues(now);oldG.gain.setValueAtTime(oldG.gain.value,now)}oldG.gain.linearRampToValueAtTime(0,now+XF);
+ try{oldS.stop(now+XF+.02)}catch(e){}oldS.onended=function(){try{oldS.disconnect();oldG.disconnect()}catch(e){}};
+ srcG=ctx.createGain();srcG.gain.setValueAtTime(0,now);srcG.gain.linearRampToValueAtTime(1,now+XF);srcG.connect(master());
+ srcNode=ctx.createBufferSource();srcNode.buffer=curBuf();srcNode.loop=true;srcNode.connect(srcG);srcNode.start(now,el);t0c=now-el}
+function stopSrc(){if(srcNode){try{srcNode.onended=null;srcNode.stop()}catch(e){}try{srcNode.disconnect()}catch(e){}srcNode=null}if(srcG){try{srcG.disconnect()}catch(e){}srcG=null}}
 function stopAudio(){posS=pos();stopSrc();playing=false;$('#bPlay').textContent='▶ Play';draw()}
 $('#bPlay').onclick=function(){playing?stopAudio():startAudio(posS)};
 document.querySelectorAll('#ab button').forEach(function(b){b.onclick=function(){setMode(b.dataset.m)}});
@@ -470,6 +481,6 @@ addEventListener('keydown',function(e){if(modal.style.display==='flex'||e.target
 /* ---------- start ---------- */
 document.body.dataset.theme=settings.theme;
 refreshKnobs();fillSel();buildAmounts();fit();loadSource('drums');scan=0;requestAnimationFrame(frame);
-window.__tc={get envIn(){return envIn.e},get envOut(){return envOut},P:P,K:K,get st(){return st},get der(){return der},get an(){return an},TC:TC,setMode:setMode,pick:pick,applyP:applyP,src:function(n){$('#sSrc').value=n;$('#sSrc').onchange()},fit:fit};
+window.__tc={tap:function(){var a=ctx.createAnalyser();a.fftSize=1024;master().connect(a);return a},get ctx(){return ctx},get envIn(){return envIn.e},get envOut(){return envOut},P:P,K:K,get st(){return st},get der(){return der},get an(){return an},TC:TC,setMode:setMode,pick:pick,applyP:applyP,src:function(n){$('#sSrc').value=n;$('#sSrc').onchange()},fit:fit};
 })();
 </script></body></html>
