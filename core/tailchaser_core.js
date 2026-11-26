@@ -26,6 +26,7 @@
     open: 4,         // ms to open before the next hit (3 ms minimum, 1 ms could click on bass)
     smooth: 3,       // ms: rounds the corners of every cut (0 = off, max 6)
     sens: 6,         // dB rise that counts as a hit
+    echoMatch: 6,    // dB: an echo must sound like the hit it follows (spectrum shape within this)
     mix: 100,        // % wet
     amount: [100, 100, 100, 100] // % of depth per band
   };
@@ -109,11 +110,19 @@
     else { bl = split(L, sr, nb, xo); br = split(R, sr, nb, xo); }
     var envs = [], hop = 0;
     for (var b = 0; b < nb; b++) { var e = envelope(bl[b], br[b], sr); envs.push(e.env); hop = e.hop; }
-    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3) };
+    // Sound fingerprint: level in 8 octave bands (63 Hz to 8 kHz), used to
+    // tell an echo (a repeat of the same sound) from a new, different sound.
+    var fp = [], fc = [63, 125, 250, 500, 1000, 2000, 4000, 8000];
+    var mono = new Float32Array(L.length); for (var i = 0; i < L.length; i++) mono[i] = 0.5 * (L[i] + R[i]);
+    for (var f = 0; f < fc.length; f++) {
+      var x = zp('lp', fc[f] * 1.41, sr, zp('hp', fc[f] / 1.41, sr, mono));
+      fp.push(envelope(x, null, sr).env);
+    }
+    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3), fp: fp };
   }
 
   /* ---------- decide where the tails are ---------- */
-  function deriveBand(env, p, amountPct) {
+  function deriveBand(env, p, amountPct, fp) {
     var N = env.length, ms = function (v) { return Math.max(0, Math.round(v / HOP_MS)); };
     var gain = new Float32Array(N), tails = [], hits = [];
     var k = 12, cands = [], last = -1e9;
@@ -128,12 +137,32 @@
       }
     }
     // peak of each candidate, then echo guard
-    var peakWin = 120, lastPeak = -1e9, lastIdx = -1e9, echoWin = 2000;
+    var peakWin = 120, lastPeak = -1e9, lastIdx = -1e9, echoWin = 2000, lastShape = null;
+    // Shape of what a sound ADDED (power at its peak minus power just before
+    // it started), per fingerprint band, normalised to its own loudest band.
+    function shape(a, ip) {
+      if (!fp) return null;
+      var v = [], mx = -1e9, pre = Math.max(0, a - 3);
+      for (var f = 0; f < fp.length; f++) {
+        var d = Math.pow(10, fp[f][ip] / 10) - Math.pow(10, fp[f][pre] / 10);
+        var db = 10 * Math.log10(Math.max(d, 1e-12)); v.push(db); if (db > mx) mx = db;
+      }
+      for (var g2 = 0; g2 < v.length; g2++) v[g2] = Math.max(v[g2] - mx, -40);
+      return v;
+    }
+    function sameSound(x, y) {
+      if (!x || !y) return true; // no fingerprint: old level-only rule
+      var s = 0, c = 0;
+      for (var f = 0; f < x.length; f++) if (x[f] > -30 || y[f] > -30) { s += Math.abs(x[f] - y[f]); c++; }
+      return c > 0 && s / c <= (p.echoMatch === undefined ? 6 : p.echoMatch);
+    }
     for (var c = 0; c < cands.length; c++) {
       var a = cands[c], pk = -1e9, ip = a;
       for (var q = a; q < Math.min(N, a + peakWin); q++) if (env[q] > pk) { pk = env[q]; ip = q; }
-      if (p.echo > 0 && a - lastIdx <= echoWin && pk < lastPeak - p.echo) continue; // echo: part of the last tail
-      hits.push({ a: a, peak: pk, ip: ip }); lastPeak = pk; lastIdx = a;
+      var sh = shape(a, ip);
+      // echo: quieter than the last hit, soon after it, AND the same sound
+      if (p.echo > 0 && a - lastIdx <= echoWin && pk < lastPeak - p.echo && sameSound(sh, lastShape)) continue;
+      hits.push({ a: a, peak: pk, ip: ip }); lastPeak = pk; lastIdx = a; lastShape = sh;
     }
     var depth = p.depth * (amountPct / 100);
     if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits };
@@ -199,7 +228,7 @@
      every knob change. */
   function derive(an, params) {
     var p = withDefaults(params), res = [];
-    for (var b = 0; b < an.nb; b++) res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b]));
+    for (var b = 0; b < an.nb; b++) res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b], an.fp));
     return { bands: res, params: p };
   }
 

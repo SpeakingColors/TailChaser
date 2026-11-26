@@ -131,4 +131,16 @@ function run(sig, params) { const p = TC.withDefaults(params); const an = TC.ana
   const c0 = click(0), c3 = click(3);
   ok('T11 Smooth 3 ms lowers click energy by 10 dB or more', c0 - c3 >= 10, c0.toFixed(1) + ' to ' + c3.toFixed(1) + ' dBFS above 3 kHz');
 }
+// T12 echo guard keeps a different, quieter sound (hi-hat after a snare) ---
+{
+  seed = 12; const s = mk(3);
+  both(s, b => { hit(b, 0.5, 200, 0.8, 120); tail(b, 0.5, 0.04, 1.2, 100); });
+  const hh = new Float32Array(s.L.length); seed = 120; let h1 = 0;
+  for (let i = 0; i < 0.04 * SR; i++) { const x = rnd(); hh[Math.round(1.0 * SR) + i] = 0.12 * Math.exp(-i / (0.01 * SR)) * (x - h1); h1 = x; }
+  for (let i = 0; i < s.L.length; i++) { s.L[i] += hh[i]; s.R[i] += hh[i]; }
+  const r = run(s, { bands: 1, echo: 8, tailStart: 12, keep: 20, fade: 60 });
+  const i0 = Math.round(1.0 * SR), i1 = i0 + Math.round(0.02 * SR);
+  const ch = rmsDb(r.o.L, i0, i1) - rmsDb(s.L, i0, i1);
+  ok('T12 hi-hat after a snare is not taken for an echo', ch > -1, 'change ' + ch.toFixed(1) + ' dB');
+}
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall passed'); process.exit(fails ? 1 : 0);
