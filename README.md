@@ -9,7 +9,9 @@ Try the mockup: open `docs/mockup/index.html` in a browser (it plays demo sounds
 ## What it does
 
 - Finds hits and the tails that follow them, per band
-- Echo guard removes delay repeats; Floor adds silence in anywhere below a level
+- Echo guard removes delay repeats: it learns the delay time and only removes repeats that sound like the note and sit on that time grid
+- Sync to tempo for Keep, Fade and Echo time; Center keeps the dry middle and clears the wide reverb
+- Floor adds silence in anywhere below a level
 - Keep, Fade, Depth and Curve shape how the tail is cut; the next hit is never cut
 - Display shows the original level, the cleaned level and what was removed, per band
 - Print: cut curve export (CSV) and cleaned audio; host automation write is planned, see ROADMAP.md

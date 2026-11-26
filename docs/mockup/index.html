@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1.4 design mockup</title>
+<title>Tail Chaser v1.5 design mockup</title>
 <style>
 @font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format('woff2')}
 @font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format('woff2')}
@@ -54,6 +54,7 @@ button.dis{opacity:.4;pointer-events:none}
 .seg button{border-radius:0;padding:4px 9px;margin-left:-1px}
 .seg button:first-child{border-radius:6px 0 0 6px}.seg button:last-child{border-radius:0 6px 6px 0}
 #meters{width:150px;display:flex;flex-direction:column}
+#meters .mrow{flex:0 0 auto!important}
 #meters .mrow{display:flex;gap:6px;flex:1;justify-content:center}
 .mcol{display:flex;flex-direction:column;align-items:center}
 .mcol .t{font-size:14px;font-weight:700;color:var(--ttl)}
@@ -102,25 +103,25 @@ button.dis{opacity:.4;pointer-events:none}
       <button id="bBands" data-tip="Show one lane per frequency band (low, mid, high) instead of the single combined Cut lane. Technical: only needed to see which band is being cut.">Bands</button>
       <button id="bScan" class="mint" data-tip="Scan the whole clip again. In the plugin the scan runs while the host plays the track once, then the cuts are known and exact. Knob changes after a scan are instant.">Scan</button>
       <span class="chip">Tails <b id="cTails">0</b></span>
+      <span class="chip" data-tip="Echo delay time in use: found from the repeats (Auto) or set with Echo time. none = no repeat pattern found, so no sound is treated as an echo.">Echo <b id="cEcho">none</b></span>
       <span class="chip" data-tip="How much of the clip has a cut of 3 dB or more in at least one band.">Tidied <b id="cRem">0</b> %</span>
       <span class="chip">Deepest cut <b id="cMax">0.0</b> dB</span>
       <span class="chip" data-tip="1 band: no delay. With several bands the plugin uses linear phase crossovers so a cut never bumps or dips the sound; those add a small delay that is reported to the host. The exact figure will be measured in the plugin build.">Latency <b id="cLat">0</b></span>
       <span class="sp"></span>
-      <span class="chip" style="color:var(--pink)">pink = removed</span>
-      <span class="chip" style="color:var(--yel)">&#9650; hit</span>
-      <span class="chip" style="color:var(--amb)">orange = cut starts</span>
+      <span class="chip"><span style="color:var(--pink)">pink removed</span> &middot; <span style="color:var(--yel)">&#9650; hit</span> &middot; <span style="color:var(--amb)">| cut starts</span></span>
      </div>
     </div>
     <div id="ctl" class="card" style="padding:6px 6px 8px;justify-content:space-between">
      <div class="grp"><h3>Bands</h3><div class="row"><div class="seg" id="segB" style="width:100px"><div class="l">Bands</div><div class="b"></div></div><div class="knob-slot" data-k="x1"></div><div class="knob-slot" data-k="x2"></div><div class="knob-slot" data-k="x3"></div></div></div>
-     <div class="grp"><h3>Find tails</h3><div class="row"><div class="knob-slot" data-k="tailStart"></div><div class="knob-slot" data-k="sens"></div><div class="knob-slot" data-k="guard"></div><div class="knob-slot" data-k="echo"></div></div></div>
+     <div class="grp"><h3>Find tails</h3><div class="row"><div class="knob-slot" data-k="tailStart"></div><div class="knob-slot" data-k="sens"></div><div class="knob-slot" data-k="guard"></div><div class="knob-slot" data-k="echo"></div><div class="knob-slot" data-k="echoTime"></div></div></div>
      <div class="grp"><h3>Silence in</h3><div class="row"><div class="knob-slot" data-k="floor"></div><div class="knob-slot" data-k="protect"></div></div></div>
      <div class="grp"><h3>Cut</h3><div class="row"><div class="knob-slot" data-k="keep"></div><div class="knob-slot" data-k="fade"></div><div class="knob-slot" data-k="depth"></div><div class="knob-slot" data-k="curve"></div><div class="knob-slot" data-k="open"></div><div class="knob-slot" data-k="smooth"></div></div></div>
-     <div class="grp"><h3>Output</h3><div class="row"><div class="knob-slot" data-k="mix"></div></div></div>
+     
     </div>
     <div id="rig">
      <span class="tag" data-tip="This row is a preview rig for the mockup. It is not part of the plugin. In the plugin the audio comes from your DAW track.">Preview rig, not part of the plugin</span>
      <button id="bPlay" class="mint">&#9654; Play</button>
+     <label style="display:flex;align-items:center;gap:4px;font:600 14px Barlow Condensed;color:var(--sky)" data-tip="Song tempo. In the plugin this comes from your DAW. The demo sounds are 128 BPM.">BPM <input id="iBpm" type="text" value="128" style="width:46px;background:var(--dp);color:var(--yel);border:1px solid var(--ln);border-radius:4px;font:500 13px JetBrains Mono;padding:2px 4px"></label>
      <select id="sSrc"><option value="drums">Drums + room reverb</option><option value="stab">Stab + ping-pong delay</option><option value="mix">Full mix</option><option value="file">My file...</option></select>
      <input type="file" id="fFile" accept="audio/*" style="display:none">
      <span class="sp"></span>
@@ -132,9 +133,13 @@ button.dis{opacity:.4;pointer-events:none}
     <div class="mcol"><div class="t">IN</div><canvas id="mIn" width="40" height="320" style="width:40px;height:320px"></canvas><div class="pk" id="pkIn">-inf</div></div>
     <div class="mcol"><div class="t">CUT</div><canvas id="mGr" width="30" height="320" style="width:30px;height:320px"></canvas><div class="pk" id="pkGr">0.0</div></div>
     <div class="mcol"><div class="t">OUT</div><canvas id="mOut" width="40" height="320" style="width:40px;height:320px"></canvas><div class="pk" id="pkOut">-inf</div></div>
-   </div></div>
+   </div>
+   <h3 style="text-align:center;margin-top:10px">Output</h3>
+   <div class="row" style="justify-content:center"><div class="knob-slot" data-k="center"></div><div class="knob-slot" data-k="mix"></div></div>
+   <div style="display:flex;justify-content:center;margin:8px 0 4px"><button id="bSync" style="width:130px" data-tip="Keep, Fade and Echo time in note values that follow the song tempo. In the plugin the tempo comes from your DAW.">Sync &middot; <span id="cBpm">128</span> BPM</button></div>
+   </div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.4 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.5 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -170,6 +175,8 @@ button.dis{opacity:.4;pointer-events:none}
     smooth: 3,       // ms: rounds the corners of every cut (0 = off, max 6)
     sens: 6,         // dB rise that counts as a hit
     echoMatch: 6,    // dB: an echo must sound like the hit it follows (spectrum shape within this)
+    echoTime: 0,     // ms: delay time of the echoes; 0 = find it from the repeats (Auto)
+    center: 100,     // %: how much of the cut hits the middle of the stereo picture (100 = same as the sides)
     mix: 100,        // % wet
     amount: [100, 100, 100, 100] // % of depth per band
   };
@@ -252,7 +259,16 @@ button.dis{opacity:.4;pointer-events:none}
     if (nb === 1) { bl = [L]; br = [R]; }
     else { bl = split(L, sr, nb, xo); br = split(R, sr, nb, xo); }
     var envs = [], hop = 0;
-    for (var b = 0; b < nb; b++) { var e = envelope(bl[b], br[b], sr); envs.push(e.env); hop = e.hop; }
+    var sfr = [];
+    for (var b = 0; b < nb; b++) {
+      var e = envelope(bl[b], br[b], sr); envs.push(e.env); hop = e.hop;
+      // share of the band's power that is in the sides (L-R), per hop
+      var n0 = bl[b].length, M = new Float32Array(n0), S = new Float32Array(n0);
+      for (var i0 = 0; i0 < n0; i0++) { M[i0] = 0.5 * (bl[b][i0] + br[b][i0]); S[i0] = 0.5 * (bl[b][i0] - br[b][i0]); }
+      var em = envelope(M, null, sr).env, es = envelope(S, null, sr).env, f0 = new Float32Array(em.length);
+      for (var h0 = 0; h0 < em.length; h0++) { var pm = Math.pow(10, em[h0] / 10), ps = Math.pow(10, es[h0] / 10); f0[h0] = pm + ps > 1e-12 ? ps / (pm + ps) : 0; }
+      sfr.push(f0);
+    }
     // Sound fingerprint: level in 8 octave bands (63 Hz to 8 kHz), used to
     // tell an echo (a repeat of the same sound) from a new, different sound.
     var fp = [], fc = [63, 125, 250, 500, 1000, 2000, 4000, 8000];
@@ -261,32 +277,46 @@ button.dis{opacity:.4;pointer-events:none}
       var x = zp('lp', fc[f] * 1.41, sr, zp('hp', fc[f] / 1.41, sr, mono));
       fp.push(envelope(x, null, sr).env);
     }
-    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3), fp: fp };
+    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3), fp: fp, sideFrac: sfr };
   }
 
   /* ---------- decide where the tails are ---------- */
-  function deriveBand(env, p, amountPct, fp) {
+  function deriveBand(env, p, amountPct, fp, octs, cmp) {
     var N = env.length, ms = function (v) { return Math.max(0, Math.round(v / HOP_MS)); };
     var gain = new Float32Array(N), tails = [], hits = [];
-    var k = 12, cands = [], last = -1e9;
-    for (var i = k; i < N; i++) {
-      if (env[i] < -85 || i - last < 40) continue;
-      var mn = 1e9;
-      for (var j = i - k; j < i; j++) if (env[j] < mn) mn = env[j];
-      if (env[i] - mn >= p.sens && env[i] >= env[i - 1]) {
-        // walk back to where the rise began
-        var s = i; while (s > 1 && env[s - 1] < env[s] - 0.3 && i - s < 12) s--;
-        cands.push(s); last = i;
+    // New sounds: a quick rise in the band level, OR a quick rise in one of the
+    // octave bands inside this band (a hi-hat over a louder kick tail barely
+    // moves the overall level, but jumps in the high octaves). An octave rise
+    // only counts if that octave is audible (above -60 dBFS and within 40 dB
+    // of the band level) and jumps 6 dB more than Hit sens; the low octaves
+    // wobble too much in 10 ms and are left out (below 500 Hz).
+    function rises(e, gate) {
+      var out = [], k = gate ? 12 : 20, last = -1e9;
+      for (var i = k; i < N; i++) {
+        if (e[i] < -85 || i - last < 40) continue;
+        if (gate && e[i] < Math.max(-60, env[i] - 40)) continue;
+        var mn = 1e9;
+        for (var j = i - k; j < i; j++) if (e[j] < mn) mn = e[j];
+        if (e[i] - mn >= p.sens + (gate ? 6 : 0) && e[i] >= e[i - 1]) {
+          var s = i; while (s > 1 && e[s - 1] < e[s] - 0.3 && i - s < k) s--;
+          out.push(s); last = i;
+        }
       }
+      return out;
     }
+    var all = rises(env, false);
+    if (fp && octs) for (var o = 0; o < octs.length; o++) all = all.concat(rises(fp[octs[o]], true));
+    all.sort(function (x, y) { return x - y; });
+    var cands = [];
+    for (var c0 = 0; c0 < all.length; c0++) if (!cands.length || all[c0] - cands[cands.length - 1] >= 40) cands.push(all[c0]);
     // peak of each candidate, then echo guard
     var peakWin = 120, lastPeak = -1e9, lastIdx = -1e9, echoWin = 2000, lastShape = null;
     // Shape of what a sound ADDED (power at its peak minus power just before
     // it started), per fingerprint band, normalised to its own loudest band.
     function shape(a, ip) {
       if (!fp) return null;
-      var v = [], mx = -1e9, pre = Math.max(0, a - 3);
-      for (var f = 0; f < fp.length; f++) {
+      var v = [], mx = -1e9, pre = Math.max(0, a - 3), use = cmp || [0, 1, 2, 3, 4, 5, 6, 7];
+      for (var u0 = 0; u0 < use.length; u0++) { var f = use[u0];
         var d = Math.pow(10, fp[f][ip] / 10) - Math.pow(10, fp[f][pre] / 10);
         var db = 10 * Math.log10(Math.max(d, 1e-12)); v.push(db); if (db > mx) mx = db;
       }
@@ -295,20 +325,77 @@ button.dis{opacity:.4;pointer-events:none}
     }
     function sameSound(x, y) {
       if (!x || !y) return true; // no fingerprint: old level-only rule
-      var s = 0, c = 0;
-      for (var f = 0; f < x.length; f++) if (x[f] > -30 || y[f] > -30) { s += Math.abs(x[f] - y[f]); c++; }
-      return c > 0 && s / c <= (p.echoMatch === undefined ? 6 : p.echoMatch);
+      // median difference, so one octave spoiled by another sound (a kick
+      // landing under an echo) cannot break the match
+      var ds = [];
+      for (var f = 0; f < x.length; f++) if (x[f] > -30 || y[f] > -30) ds.push(Math.abs(x[f] - y[f]));
+      if (!ds.length) return false;
+      ds.sort(function (q, r) { return q - r; });
+      var med = ds.length % 2 ? ds[ds.length >> 1] : 0.5 * (ds[(ds.length >> 1) - 1] + ds[ds.length >> 1]);
+      return med <= (p.echoMatch === undefined ? 6 : p.echoMatch);
     }
+    // Pass 1: every candidate with its peak and tone.
+    var C = [];
     for (var c = 0; c < cands.length; c++) {
       var a = cands[c], pk = -1e9, ip = a;
       for (var q = a; q < Math.min(N, a + peakWin); q++) if (env[q] > pk) { pk = env[q]; ip = q; }
-      var sh = shape(a, ip);
-      // echo: quieter than the last hit, soon after it, AND the same sound
-      if (p.echo > 0 && a - lastIdx <= echoWin && pk < lastPeak - p.echo && sameSound(sh, lastShape)) continue;
-      hits.push({ a: a, peak: pk, ip: ip }); lastPeak = pk; lastIdx = a; lastShape = sh;
+      C.push({ a: a, peak: pk, ip: ip, sh: shape(a, ip) });
     }
-    var depth = p.depth * (amountPct / 100);
-    if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits };
+    // Pass 2: echo guard with timing. A quieter sound with the same tone is an
+    // echo only if it sits on the echo grid: a multiple of the delay time after
+    // the hit. The delay time is set (echoTime) or found from a repeat pattern
+    // (a second repeat at twice the spacing). A single same-tone ghost note off
+    // the grid stays a hit.
+    var tol = 15, fixedD = p.echoTime > 0 ? p.echoTime / HOP_MS : 0, songD = fixedD, echoTimes = [];
+    function onGrid(d, D) { if (!D) return false; var k = Math.round(d / D); return k >= 1 && k <= 16 && Math.abs(d - k * D) <= tol; }
+    // An echo is matched to the most recent LOUDER sound with the SAME tone
+    // (other sounds may play in between, like drums under a delayed stab).
+    function sourceOf(x, list) {
+      for (var r = list.length - 1; r >= 0; r--) {
+        var h = list[r];
+        if (x.a - h.a > echoWin) break;
+        if (x.peak < h.peak - p.echo && sameSound(x.sh, h.sh)) return h;
+      }
+      return null;
+    }
+    // Song-wide pattern: the same spacing from a sound to a quieter copy of
+    // it, at the same level drop, seen 4 or more times = the delay time, even
+    // when the second repeat is hidden under the next note.
+    if (!fixedD && p.echo > 0) {
+      var pairs = [], seen = [];
+      for (var c1 = 0; c1 < C.length; c1++) {
+        var z = C[c1], h0 = sourceOf(z, seen);
+        if (h0) pairs.push({ d: z.a - h0.a, drop: h0.peak - z.peak }); else seen.push(z);
+      }
+      var best = 0, bestN = 0;
+      for (var i1 = 0; i1 < pairs.length; i1++) {
+        var cnt = 0, sum = 0;
+        for (var i2 = 0; i2 < pairs.length; i2++)
+          if (Math.abs(pairs[i2].d - pairs[i1].d) <= tol && Math.abs(pairs[i2].drop - pairs[i1].drop) <= 3) { cnt++; sum += pairs[i2].d; }
+        if (cnt > bestN) { bestN = cnt; best = sum / cnt; }
+      }
+      if (bestN >= 4) songD = best;
+    }
+    var real = [];
+    for (var c2 = 0; c2 < C.length; c2++) {
+      var x = C[c2], isEcho = false, src = p.echo > 0 ? sourceOf(x, real) : null;
+      if (src) {
+        var d = x.a - src.a;
+        if (onGrid(d, src.D || songD)) isEcho = true;
+        else if (!fixedD) {
+          for (var m = c2 + 1; m < C.length && C[m].a - src.a <= 2 * d + tol; m++) {
+            var y = C[m];
+            if (Math.abs((y.a - src.a) - 2 * d) <= tol && y.peak <= x.peak + 1.5 && sameSound(y.sh, src.sh)) {
+              isEcho = true; src.D = d; if (!songD) songD = d; break;
+            }
+          }
+        }
+      }
+      if (isEcho) continue;
+      hits.push({ a: x.a, peak: x.peak, ip: x.ip }); real.push({ a: x.a, peak: x.peak, sh: x.sh, D: 0 });
+    }
+    var depth = p.depth * (amountPct / 100), echoMs = songD ? songD * HOP_MS : 0;
+    if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits, echoMs: echoMs };
     var keepH = ms(p.keep), fadeH = Math.max(1, ms(p.fade)), openH = Math.max(3, ms(p.open)), leadH = 8;
     var slopeMin = 30 * (p.guard / 100); // dB per second
     var kk = Math.pow(2, (p.curve / 100) * 2);
@@ -321,11 +408,24 @@ button.dis{opacity:.4;pointer-events:none}
         for (var u = from; u < b; u++) { if (env[u] <= p.floor) { if (t0 < 0 || u < t0) { t0 = u; fromFloor = true; } break; } }
       }
       if (t0 < 0) continue;
-      if (!fromFloor) {                     // sustain guard: must really be decaying
-        var wd = Math.min(250, b - t0);
-        if (wd < 20) continue;
-        var mnv = 1e9; for (var w = t0; w < t0 + wd; w++) if (env[w] < mnv) mnv = env[w];
-        if (env[t0] - mnv < slopeMin * wd / 1000) continue;
+      if (!fromFloor && slopeMin > 0) {     // sustain guard: must KEEP decaying
+        // A tail falls (steadily, or in echo steps) or into silence. A
+        // level that drops and then holds (a kick decaying onto a held bass
+        // note) is not a tail: slide forward and look again, so the cut only
+        // starts once the held sound itself dies away.
+        var ok0 = false;
+        for (var tt = t0; tt < b - 20; tt += 10) {
+          var wd = Math.min(250, b - tt), hf = wd >> 1;
+          if (wd < 20) break;
+          var e1 = avgDb(env, tt, tt + 10), e2 = avgDb(env, tt + hf - 5, tt + hf + 5), e3 = avgDb(env, tt + wd - 10, tt + wd);
+          var need = slopeMin * wd / 1000, mn2 = 1e9, mx2 = -1e9, mnAll = 1e9;
+          for (var w = tt; w < tt + wd; w++) { if (env[w] < mnAll) mnAll = env[w]; }
+          for (var w2 = tt + hf; w2 + 20 <= tt + wd; w2 += 5) { var av = avgDb(env, w2, w2 + 20); if (av < mn2) mn2 = av; if (av > mx2) mx2 = av; }
+          if (mx2 < -1e8) { mn2 = mx2 = e3; }
+          var hold = e3 > -85 && mx2 - mn2 <= 5 && e2 - e3 < need * 0.25;  // level sits still: a held note
+          if (!hold && e1 - mnAll >= need) { t0 = tt; ok0 = true; break; }
+        }
+        if (!ok0) continue;
       }
       var iF = t0 + keepH, iE = iF + fadeH;
       var rs = (b >= N) ? N + 1e6 : b - leadH - openH;       // ramp start
@@ -347,8 +447,10 @@ button.dis{opacity:.4;pointer-events:none}
       }
       tails.push({ t0: t0, from: iF, to: b >= N ? N - 1 : rs, peak: P });
     }
-    return { gain: smoothDb(gain, p.smooth), tails: tails, hits: hits };
+    return { gain: smoothDb(gain, p.smooth), tails: tails, hits: hits, echoMs: echoMs };
   }
+
+  function avgDb(e, a, b) { var s = 0, n = 0; for (var i = Math.max(0, a); i < Math.min(e.length, b); i++) { s += e[i]; n++; } return n ? s / n : -120; }
 
   /* Round the corners of a dB gain curve with a triangular kernel. Zero stays
      exactly zero wherever all neighbours are zero, so bypass stays bit exact.
@@ -371,7 +473,15 @@ button.dis{opacity:.4;pointer-events:none}
      every knob change. */
   function derive(an, params) {
     var p = withDefaults(params), res = [];
-    for (var b = 0; b < an.nb; b++) res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b], an.fp));
+    for (var b = 0; b < an.nb; b++) {
+      var lo = b === 0 ? 0 : an.xo[b - 1], hi = b === an.nb - 1 ? 1e9 : an.xo[b], octs = [], fc = [63, 125, 250, 500, 1000, 2000, 4000, 8000];
+      var cmp = [];
+      for (var o = 0; o < fc.length; o++) {
+        if (fc[o] >= 500 && fc[o] >= lo && fc[o] < hi) octs.push(o);
+        if (fc[o] * 2 >= lo && fc[o] / 2 < hi) cmp.push(o);   // tone compare: the band plus one octave each side
+      }
+      res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b], an.fp, octs, cmp));
+    }
     return { bands: res, params: p };
   }
 
@@ -386,16 +496,28 @@ button.dis{opacity:.4;pointer-events:none}
     return g;
   }
 
+  /* Apply. With Center 100 the middle and the sides get the same cut (plain
+     gain per band). Lower Center cuts the middle less: the dry centre stays
+     natural while the wide reverb tail is still cleared. Unity gain or Mix 0
+     leaves the input bit exact. */
   function render(an, der, L, R) {
-    var n = an.n, p = der.params, mix = p.mix / 100;
-    var oL = new Float32Array(L), oR = new Float32Array(R), gm = [];
+    var n = an.n, p = der.params, mix = p.mix / 100, cen = Math.max(0, Math.min(100, p.center === undefined ? 100 : p.center)) / 100;
+    var oL = new Float32Array(L), oR = new Float32Array(R);
     for (var b = 0; b < an.nb; b++) {
       var gh = der.bands[b].gain, any = false;
       for (var i = 0; i < gh.length; i++) if (gh[i] !== 0) { any = true; break; }
-      if (!any) { gm.push(null); continue; }
-      var g = perSample(gh, an.hop, n); gm.push(g);
-      var bl = an.bandL[b], br = an.bandR[b];
-      for (var s = 0; s < n; s++) { var d = (g[s] - 1) * mix; oL[s] += d * bl[s]; oR[s] += d * br[s]; }
+      if (!any) continue;
+      var gS = perSample(gh, an.hop, n), bl = an.bandL[b], br = an.bandR[b];
+      if (cen >= 1) {
+        for (var s = 0; s < n; s++) { var d = (gS[s] - 1) * mix; oL[s] += d * bl[s]; oR[s] += d * br[s]; }
+      } else {
+        var gmh = new Float32Array(gh.length); for (var k = 0; k < gh.length; k++) gmh[k] = gh[k] * cen;
+        var gM = perSample(gmh, an.hop, n);
+        for (var s2 = 0; s2 < n; s2++) {
+          var dm = (gM[s2] - 1) * mix * 0.5 * (bl[s2] + br[s2]), ds = (gS[s2] - 1) * mix * 0.5 * (bl[s2] - br[s2]);
+          oL[s2] += dm + ds; oR[s2] += dm - ds;
+        }
+      }
     }
     return { L: oL, R: oR };
   }
@@ -434,9 +556,9 @@ function chord(s,t,l,len){var i0=Math.round(t*SR),n=Math.round(len*SR),fs=[220,2
 function pingpong(src,delay,fb,mix){var n=src.L.length,d=Math.round(delay*SR),out=mk(n),tL=new Float32Array(n),tR=new Float32Array(n);
  for(var i=0;i<n;i++){var fL=i>=d?tR[i-d]:0,fR=i>=d?tL[i-d]:0;tL[i]=src.L[i]*.7+fL*fb;tR[i]=src.R[i]*.7+fR*fb;
   out.L[i]=src.L[i]+(i>=d?tR[i-d]*mix:0);out.R[i]=src.R[i]+(i>=d?tL[i-d]*mix:0)}return out}
-function genDrums(){seed=11;var n=DUR*SR,s=mk(n),B=.46875;for(var b=0;b<16;b++){var t=.2+b*B;if(b%2===0)kick(s,t,.8);if(b%4===2){snare(s,t,.55);addTail(s,t,.12,1.8,.45)}hat(s,t+B/2,.22);if(b%4===3)hat(s,t+B/4,.18)}return s}
+function genDrums(){seed=11;var n=DUR*SR,s=mk(n),B=.46875;for(var b=0;b<16;b++){var t=.2+b*B;if(b%2===0)kick(s,t,.8);if(b%4===2){snare(s,t,.55);addTail(s,t,.12,1.8,.45)}if(b%8===6)snare(s,t+B*.625,.09);hat(s,t+B/2,.22);if(b%4===3)hat(s,t+B/4,.18)}return s}
 function genStab(){seed=22;var n=DUR*SR,d=mk(n),B=.46875;[0,1.5,3,4.5,6,7.5,9,10.5].forEach(function(b){chord(d,.2+b*B,.22,.4)});
- var o=pingpong(d,.3516,.55,1);var g=mk(n);for(var i=0;i<n;i++){g.L[i]=o.L[i];g.R[i]=o.R[i]}[0,3,6,9].forEach(function(b){addTail(g,.2+b*B,.02,1.2,.3)});return g}
+ var o=pingpong(d,.3516,.45,.5);var g=mk(n);for(var i=0;i<n;i++){g.L[i]=o.L[i];g.R[i]=o.R[i]}[0,3,6,9].forEach(function(b){addTail(g,.2+b*B,.02,1.2,.3)});return g}
 function genMix(){var a=genDrums(),b=genStab(),n=a.L.length,s=mk(n);seed=33;var B=.46875;
  for(var i=0;i<n;i++){s.L[i]=a.L[i]*.8+b.L[i]*.8;s.R[i]=a.R[i]*.8+b.R[i]*.8}
  for(var q=0;q<4;q++){var t0=.2+q*4*B*1,len=Math.round(1.7*SR),i0=Math.round(t0*SR),f=q%2?49:55;for(var i=0;i<len&&i0+i<n;i++){var e=Math.min(1,i/400)*Math.min(1,(len-i)/2000);var v=.28*e*Math.sin(2*Math.PI*f*i/SR);s.L[i0+i]+=v;s.R[i0+i]+=v}}
@@ -454,21 +576,26 @@ var K=[
  {id:'echo',l:'Echo',min:0,max:24,def:8,u:' dB',off0:1,tip:'Removes delay repeats. A new sound counts as an echo only if it is this many dB under the last hit AND sounds like it (same tone). A different sound, like a hi-hat after a snare, is always kept. 0 = off, then repeats count as hits.'},
  {id:'floor',l:'Floor',min:-90,max:-30,def:-70,u:' dB',offm:-90,tip:'Silence in: anything quieter than this is cut too, tail or not (noise, bleed, room). -90 = off. You can also drag the dashed line in the display.'},
  {id:'protect',l:'Protect',min:0,max:50,def:12,u:' ms',tip:'After a hit, no tail may start for this long. Keeps the body of the hit safe.'},
- {id:'keep',l:'Keep',min:0,max:1500,def:60,u:' ms',tip:'How long the tail stays untouched after it starts, before the fade begins. More Keep = a natural, longer ring.'},
- {id:'fade',l:'Fade',min:5,max:1500,def:150,u:' ms',log:1,tip:'How long the fade down takes. Short = gated, tight. Long = smooth and natural.'},
+ {id:'keep',l:'Keep',min:0,max:1500,def:60,u:' ms',sync:3,tip:'How long the tail stays untouched after it starts, before the fade begins. More Keep = a natural, longer ring.'},
+ {id:'fade',l:'Fade',min:5,max:2000,def:150,u:' ms',log:1,sync:6,tip:'How long the fade down takes. Short = gated, tight. Long = smooth and natural.'},
  {id:'depth',l:'Depth',min:0,max:96,def:60,u:' dB',tip:'The most a tail can be turned down. 60 dB is almost silence; 12 dB only tucks the tail back. 0 = untouched.'},
  {id:'curve',l:'Curve',min:-100,max:100,def:0,u:' %',tip:'Shape of the fade. Plus = most of the drop happens early. Minus = the tail holds on, then drops.'},
  {id:'open',l:'Open',min:3,max:30,def:4,u:' ms',tip:'How fast the sound opens again before the next hit. The plugin knows the next hit is coming, so the hit itself is never cut. 3 ms is the shortest, faster could click on bass.'},
  {id:'smooth',l:'Smooth',min:0,max:6,def:3,u:' ms',tip:'Rounds the corners of every cut so fast cuts do not click. 0 = off. More = softer edges, a little less punch on very fast fades. Measured: 3 ms lowers click energy by about 14 to 20 dB.'},
+ {id:'echoTime',l:'Echo time',min:0,max:1500,def:0,u:' ms',sync:0,auto:1,tip:'Delay time of the echoes. Auto finds it from the repeats (a second repeat at twice the spacing), then also removes single repeats on that grid. A quiet note of the same drum that is not on the grid is kept. Set it to your delay time (or a note value with Sync on) to be sure.'},
+ {id:'center',l:'Center',min:0,max:100,def:100,u:' %',tip:'How much of the cut hits the middle of the stereo picture. Reverb lives mostly at the sides: lower Center keeps the dry middle natural while the wide tail is still cleared. 100 % = middle and sides cut the same. 0 % = only the sides are cut.'},
  {id:'mix',l:'Mix',min:0,max:100,def:100,u:' %',tip:'Blend of cleaned and original sound. 0 = exactly the original. Use less than 100 to keep some room.'}
 ];
+var NOTES=[['1/64',1/16],['1/32',1/8],['1/16T',1/6],['1/16',1/4],['1/8T',1/3],['1/16D',3/8],['1/8',1/2],['1/4T',2/3],['1/8D',3/4],['1/4',1],['1/2',2],['1 bar',4]];
+function noteList(k){return k.auto?[['Auto',0]].concat(NOTES):NOTES}
+function noteMs(beats){return beats*60000/P.bpm}
 var KM={};K.forEach(function(k){KM[k.id]=k});
-var P={bands:3,x1:250,x2:3000,x3:8000,amount:[100,100,100,100]};
-K.forEach(function(k){if(P[k.id]===undefined)P[k.id]=k.def});
+var P={sync:0,bpm:128,bands:3,x1:250,x2:3000,x3:8000,amount:[100,100,100,100]};
+K.forEach(function(k){if(P[k.id]===undefined)P[k.id]=k.def;if(k.sync!==undefined)P[k.id+'N']=k.sync});
 var FACT=[
  {n:'Default Tidy',p:{}},
  {n:'Tight Drums',p:{bands:1,tailStart:14,keep:30,fade:90,depth:70,echo:0,floor:-60}},
- {n:'Reverb Trim',p:{bands:3,tailStart:22,keep:150,fade:400,depth:24,curve:30}},
+ {n:'Reverb Trim',p:{bands:3,tailStart:22,keep:150,fade:400,depth:24,curve:30,center:60}},
  {n:'Delay Clean',p:{bands:3,echo:8,keep:40,fade:120,depth:60}},
  {n:'Silence In',p:{bands:2,floor:-55,tailStart:30,keep:40,fade:80,depth:80}},
  {n:'Mix Bus Gentle',p:{bands:4,depth:12,keep:120,fade:300}},
@@ -484,7 +611,7 @@ var sig=null,an=null,der=null,out=null,envIn=null,envOut=null,st=null,delta=null
 var mode='proc',playing=false,srcNode=null,t0c=0,posS=0,gainNode=null,bufs={},scan=1,hover=-1;
 var curName='Default Tidy';
 
-function coreParams(){return{bands:P.bands,xo:[P.x1,P.x2,P.x3],tailStart:P.tailStart,keep:P.keep,fade:P.fade,depth:P.depth,curve:P.curve,guard:P.guard,echo:P.echo,floor:P.floor,protect:P.protect,open:P.open,sens:P.sens,smooth:P.smooth,mix:P.mix,amount:P.amount}}
+function coreParams(){return{bands:P.bands,xo:[P.x1,P.x2,P.x3],tailStart:P.tailStart,keep:P.keep,fade:P.fade,depth:P.depth,curve:P.curve,guard:P.guard,echo:P.echo,floor:P.floor,protect:P.protect,open:P.open,sens:P.sens,smooth:P.smooth,echoTime:P.echoTime,center:P.center,mix:P.mix,amount:P.amount}}
 function loadSource(name){
  if(name==='file')return;
  sig=sources[name]();analyseNow()}
@@ -492,33 +619,35 @@ function analyseNow(){var c=coreParams();an=TC.analyze(sig.L,sig.R,SR,c.bands,c.
 function deriveNow(){var c=coreParams();der=TC.derive(an,c);out=TC.render(an,der,sig.L,sig.R);
  envIn=envIn&&envIn.src===sig?envIn:{src:sig,e:TC.envelope(sig.L,sig.R,SR).env};
  envOut=effOut();st=TC.stats(an,der,sig.L,sig.R,out);delta=null;bufs.proc=null;bufs.delta=null;
- $('#cTails').textContent=st.tails;$('#cLat').textContent=P.bands===1?'0 ms':'tbd';var nt=der.bands[0].gain.length,cnt=0;for(var q=0;q<nt;q++){for(var bb=0;bb<der.bands.length;bb++){if(der.bands[bb].gain[q]<=-3){cnt++;break}}}$('#cRem').textContent=Math.round(100*cnt/nt);$('#cMax').textContent=st.maxCut.toFixed(1);
+ $('#cTails').textContent=st.tails;var em=0;der.bands.forEach(function(b){if(b.echoMs>em)em=b.echoMs});$('#cEcho').textContent=P.echo<=0?'off':(P.echoTime>0?Math.round(P.echoTime)+' ms':(em?'Auto '+Math.round(em)+' ms':'none'));$('#cLat').textContent=P.bands===1?'0 ms':'tbd';var nt=der.bands[0].gain.length,cnt=0;for(var q=0;q<nt;q++){for(var bb=0;bb<der.bands.length;bb++){if(der.bands[bb].gain[q]<=-3){cnt++;break}}}$('#cRem').textContent=Math.round(100*cnt/nt);$('#cMax').textContent=st.maxCut.toFixed(1);
  if(playing)restartAudio(pos());draw()}
 function effOut(){var ei=envIn.e,nh=ei.length,mx=P.mix/100,o=new Float32Array(nh),nb=an.nb;
- for(var i=0;i<nh;i++){var num=0,den=0;for(var b=0;b<nb;b++){var pw=Math.pow(10,an.envs[b][i]/10),gl=Math.pow(10,der.bands[b].gain[i]/20),ge=1+mx*(gl-1);num+=pw*ge*ge;den+=pw}
+ for(var i=0;i<nh;i++){var num=0,den=0;for(var b=0;b<nb;b++){var pw=Math.pow(10,an.envs[b][i]/10),gd=der.bands[b].gain[i],gl=Math.pow(10,gd/20),gs=1+mx*(gl-1),gm=1+mx*(Math.pow(10,gd*P.center/100/20)-1),sf=an.sideFrac?an.sideFrac[b][i]:0;num+=pw*((1-sf)*gm*gm+sf*gs*gs);den+=pw}
   o[i]=ei[i]+(den>1e-12?10*Math.log10((num+1e-20)/den):0)}return o}
 var tmr=0,tmr2=0;
 function soon(){clearTimeout(tmr);tmr=setTimeout(deriveNow,40)}
 function soonAn(){clearTimeout(tmr2);tmr2=setTimeout(analyseNow,140)}
 
 /* ---------- knobs ---------- */
-function fmt(k,v){if(k.id==='echo'&&v<=0)return'off';if(k.id==='floor'&&v<=-89)return'off';var r=(k.max-k.min)>200?0:(k.max-k.min)>30?0:1;return(k.log||Math.abs(v)>=100?Math.round(v):(+v.toFixed(r)))+k.u}
+function fmt(k,v){if(k.sync!==undefined&&P.sync)return noteList(k)[P[k.id+'N']][0];if(k.auto&&v<=0)return'Auto';if(k.id==='echo'&&v<=0)return'off';if(k.id==='floor'&&v<=-89)return'off';var r=(k.max-k.min)>200?0:(k.max-k.min)>30?0:1;return(k.log||Math.abs(v)>=100?Math.round(v):(+v.toFixed(r)))+k.u}
 var knobEls={};
 function mkKnob(k,slot){
  var d=document.createElement('div');d.className='knob';d.dataset.tip=k.tip;
  d.innerHTML='<svg viewBox="0 0 46 46"><path class="tr" d="" fill="none" stroke="#3a3d48" stroke-width="4" stroke-linecap="round"/><path class="ar" d="" fill="none" stroke="#02EBBA" stroke-width="4" stroke-linecap="round"/><line class="pt" x1="23" y1="23" x2="23" y2="9" stroke="#f4f5f7" stroke-width="2.5" stroke-linecap="round"/></svg><div class="l">'+k.l+'</div><div class="v"></div>';
  slot.appendChild(d);knobEls[k.id]=d;
  var drag=null;
- function norm(v){return k.log?Math.log(v/k.min)/Math.log(k.max/k.min):(v-k.min)/(k.max-k.min)}
- function den(n){n=Math.max(0,Math.min(1,n));return k.log?k.min*Math.pow(k.max/k.min,n):k.min+n*(k.max-k.min)}
+function S(){return k.sync!==undefined&&P.sync}
+ function NL(){return noteList(k).length}
+ function norm(v){if(S())return P[k.id+'N']/(NL()-1);return k.log?Math.log(v/k.min)/Math.log(k.max/k.min):(v-k.min)/(k.max-k.min)}
+ function den(n){n=Math.max(0,Math.min(1,n));if(S())return Math.round(n*(NL()-1));return k.log?k.min*Math.pow(k.max/k.min,n):k.min+n*(k.max-k.min)}
  function arc(a0,a1){var r=19,c=23,p=function(a){var t=(a-90)*Math.PI/180;return[c+r*Math.cos(t),c+r*Math.sin(t)]},s=p(a0),e=p(a1);return'M'+s[0]+' '+s[1]+'A'+r+' '+r+' 0 '+((a1-a0)>180?1:0)+' 1 '+e[0]+' '+e[1]}
  d.upd=function(){var v=P[k.id],n=norm(v),a=-135+270*n;$('.tr',d).setAttribute('d',arc(-135,135));$('.ar',d).setAttribute('d',n>0.002?arc(-135,a):'');$('.pt',d).setAttribute('transform','rotate('+a+' 23 23)');$('.v',d).textContent=fmt(k,v)};
- function set(v){v=Math.max(k.min,Math.min(k.max,v));if(!k.log||k.id==='fade')v=Math.round(v);else v=Math.round(v);P[k.id]=v;d.upd();if(k.id==='x1'||k.id==='x2'||k.id==='x3')soonAn();else soon();draw()}
+ function set(v){if(S()){var li=noteList(k),ix=Math.max(0,Math.min(li.length-1,Math.round(v)));P[k.id+'N']=ix;P[k.id]=Math.round(noteMs(li[ix][1]));d.upd();soon();draw();return}v=Math.max(k.min,Math.min(k.max,v));if(!k.log||k.id==='fade')v=Math.round(v);else v=Math.round(v);P[k.id]=v;d.upd();if(k.id==='x1'||k.id==='x2'||k.id==='x3')soonAn();else soon();draw()}
  d.set=set;
  d.addEventListener('pointerdown',function(e){if(d.classList.contains('off'))return;d.setPointerCapture(e.pointerId);drag={y:e.clientY,n:norm(P[k.id])};tipHide()});
  d.addEventListener('pointermove',function(e){if(!drag)return;var s=sc();set(den(drag.n+(drag.y-e.clientY)/s/(e.shiftKey?900:200)))});
  d.addEventListener('pointerup',function(){drag=null});
- d.addEventListener('dblclick',function(){set(k.def)});
+ d.addEventListener('dblclick',function(){set(S()?k.sync:k.def)});
  d.addEventListener('wheel',function(e){e.preventDefault();set(den(norm(P[k.id])+(e.deltaY<0?1:-1)*(e.shiftKey?.005:.02)))},{passive:false});
  d.upd()}
 document.querySelectorAll('.knob-slot').forEach(function(s){mkKnob(KM[s.dataset.k],s)});
@@ -648,14 +777,17 @@ $('#fFile').onchange=function(){var f=this.files[0];if(!f||!ctx)return;var fr=ne
  stopAudio();posS=0;var n=Math.min(buf.length,Math.floor(30*buf.sampleRate)),L=new Float32Array(n),R=new Float32Array(n);buf.copyFromChannel(L,0);buf.copyFromChannel(R,buf.numberOfChannels>1?1:0);
  SR=buf.sampleRate;DUR=n/SR;sig={L:L,R:R};envIn=null;bufs={};analyseNow();scan=0},function(){alert('Could not read that file.')})};fr.readAsArrayBuffer(f)};
 $('#bScan').onclick=function(){scan=0;draw()};
+function resync(){K.forEach(function(k){if(k.sync!==undefined&&P.sync){P[k.id]=Math.round(noteMs(noteList(k)[P[k.id+'N']][1]))}});$('#bSync').classList.toggle('on',!!P.sync);$('#cBpm').textContent=P.bpm;refreshKnobs();soon()}
+$('#bSync').onclick=function(){P.sync=P.sync?0:1;resync()};
+$('#iBpm').onchange=function(){var v=+this.value;if(!(v>=40&&v<=300)){this.value=P.bpm;return}P.bpm=v;resync()};
 function amtVis(){var r=$('#amtRow');if(r)r.style.display=showBands?'flex':'none'}
 $('#bBands').onclick=function(){showBands=!showBands;this.classList.toggle('on',showBands);amtVis();draw()};
 
 /* ---------- presets ---------- */
 function allPresets(){return FACT.map(function(f){return{n:f.n,p:f.p,f:1}}).concat(user.map(function(u){return{n:u.n,p:u.p,f:0}}))}
 function fillSel(){var s=$('#pSel');s.innerHTML='';allPresets().forEach(function(p,i){var o=document.createElement('option');o.value=i;o.textContent=(p.f?'• ':'')+p.n;if(p.n===curName)o.selected=true;s.appendChild(o)})}
-function snap(){var o={};K.forEach(function(k){o[k.id]=P[k.id]});o.bands=P.bands;o.amount=P.amount.slice();return o}
-function applyP(p){var d={bands:3,amount:[100,100,100,100]};K.forEach(function(k){d[k.id]=k.def});Object.keys(d).forEach(function(k){P[k]=p[k]!==undefined?JSON.parse(JSON.stringify(p[k])):d[k]});refreshKnobs();analyseNow();buildAmounts()}
+function snap(){var o={sync:P.sync};K.forEach(function(k){o[k.id]=P[k.id];if(k.sync!==undefined)o[k.id+'N']=P[k.id+'N']});o.bands=P.bands;o.amount=P.amount.slice();return o}
+function applyP(p){var d={sync:0,bands:3,amount:[100,100,100,100]};K.forEach(function(k){d[k.id]=k.def;if(k.sync!==undefined)d[k.id+'N']=k.sync});Object.keys(d).forEach(function(k){P[k]=p[k]!==undefined?JSON.parse(JSON.stringify(p[k])):d[k]});$('#bSync').classList.toggle('on',!!P.sync);refreshKnobs();analyseNow();buildAmounts()}
 function pick(i){var a=allPresets(),p=a[(i+a.length)%a.length];curName=p.n;applyP(p.p);fillSel()}
 $('#pSel').onchange=function(){pick(+this.value)};
 $('#pPrev').onclick=function(){var a=allPresets(),i=a.findIndex(function(p){return p.n===curName});pick(i-1)};
@@ -675,10 +807,10 @@ $('#pRen').onclick=function(){var f=FACT.find(function(x){return x.n===curName})
 $('#pDel').onclick=function(){var u=user.find(function(x){return x.n===curName});if(!u){openDlg('<h2>Delete</h2><p>Factory presets cannot be deleted.</p>',[{t:'OK'}]);return}
  openDlg('<h2>Delete "'+curName.replace(/</g,'')+'"?</h2><p>This cannot be undone.</p>',[{t:'Delete',c:'mint',f:function(){user=user.filter(function(x){return x!==u});saveUser();pick(0)}},{t:'Cancel'}])};
 $('#pExp').onclick=function(){var t=JSON.stringify({tailchaser:1,name:curName,params:snap()});openDlg('<h2>Export preset</h2><p>Copy this text and keep it somewhere.</p><textarea id="dx" readonly>'+t.replace(/</g,'&lt;')+'</textarea>',[{t:'Select all',f:function(){$('#dx').select();return false}},{t:'Close'}])};
-$('#pImp').onclick=function(){openDlg('<h2>Import preset</h2><p>Paste the preset text.</p><textarea id="dx"></textarea><p id="de" style="color:var(--pink)"></p>',[{t:'Import',c:'mint',f:function(){try{var o=JSON.parse($('#dx').value);if(!o||o.tailchaser!==1||typeof o.params!=='object')throw 0;var p={};K.forEach(function(k){var v=o.params[k.id];if(typeof v==='number'&&isFinite(v))p[k.id]=Math.max(k.min,Math.min(k.max,v))});
+$('#pImp').onclick=function(){openDlg('<h2>Import preset</h2><p>Paste the preset text.</p><textarea id="dx"></textarea><p id="de" style="color:var(--pink)"></p>',[{t:'Import',c:'mint',f:function(){try{var o=JSON.parse($('#dx').value);if(!o||o.tailchaser!==1||typeof o.params!=='object')throw 0;var p={};K.forEach(function(k){var v=o.params[k.id];if(typeof v==='number'&&isFinite(v))p[k.id]=Math.max(k.min,Math.min(k.max,v));if(k.sync!==undefined){var nv=o.params[k.id+'N'];if(typeof nv==='number'&&isFinite(nv))p[k.id+'N']=Math.max(0,Math.min(noteList(k).length-1,Math.round(nv)))}});p.sync=o.params.sync?1:0;
  if(typeof o.params.bands==='number')p.bands=Math.max(1,Math.min(4,Math.round(o.params.bands)));var n=uniq(String(o.name||'Imported').slice(0,40));user.push({n:n,p:p});saveUser();curName=n;applyP(p);fillSel()}catch(e){$('#de').textContent='That is not a Tail Chaser preset.';return false}}},{t:'Cancel'}])};
 
-$('#bGuide').onclick=function(){openDlg('<h2>Guide</h2><ul><li><b>What it does:</b> finds the tails of reverb and delay (and any quiet leftovers) and fades them out, so the mix stays tight with more silence between hits.</li><li><b>Scan:</b> in the plugin, play the track once. The plugin learns where every hit and tail is, then reads the cut curve exactly, with no delay. Knobs work instantly after a scan.</li><li><b>The display:</b> lavender = original level, mint = cleaned level, pink = what was removed. Each band has its own lane; yellow triangles are hits, orange lines are where a tail starts.</li><li><b>Start here:</b> Depth sets how much, Keep and Fade set how natural it sounds, Tail start sets where the tail begins.</li><li><b>Check it:</b> press 3 (Removed). Hear only what is cut. If you hear notes, back off.</li></ul><p>Keys: <kbd>Space</kbd> play/stop &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> original/cleaned/removed &nbsp; <kbd>Home</kbd> to start &nbsp; double-click a knob to reset it.</p>',[{t:'Close'}])};
+$('#bGuide').onclick=function(){openDlg('<h2>Guide</h2><ul><li><b>What it does:</b> finds the tails of reverb and delay (and any quiet leftovers) and fades them out, so the mix stays tight with more silence between hits.</li><li><b>Scan:</b> in the plugin, play the track once. The plugin learns where every hit and tail is, then reads the cut curve exactly, with no delay. Knobs work instantly after a scan.</li><li><b>The display:</b> lavender = original level, mint = cleaned level, pink = what was removed. Each band has its own lane; yellow triangles are hits, orange lines are where a tail starts.</li><li><b>Start here:</b> Depth sets how much, Keep and Fade set how natural it sounds, Tail start sets where the tail begins.</li><li><b>Check it:</b> press 3 (Removed). Hear only what is cut. If you hear notes, back off.</li><li><b>Delays:</b> Echo removes repeats. Echo time on Auto learns the delay time from the song (shown in the Echo chip); a quiet note that is not on that time grid is kept. Set it by hand if Auto shows none.</li><li><b>Sync:</b> Keep, Fade and Echo time in note values that follow the tempo.</li><li><b>Center:</b> lower it to keep the dry middle natural and clear mostly the wide reverb at the sides.</li></ul><p>Keys: <kbd>Space</kbd> play/stop &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> original/cleaned/removed &nbsp; <kbd>Home</kbd> to start &nbsp; double-click a knob to reset it.</p>',[{t:'Close'}])};
 $('#bSet').onclick=function(){openDlg('<h2>Settings</h2><label><input type="checkbox" id="sb"'+(settings.bubbles?' checked':'')+'> Info bubbles</label><label><input type="checkbox" id="sp"'+(settings.power?' checked':'')+'> Power saving (slower display)</label><label>Look <select id="st"><option value="a">A Neon Navy</option><option value="b">B Purple Soda Pop</option><option value="c">C PurrOne</option></select></label>',[{t:'OK',c:'mint',f:function(){settings.bubbles=$('#sb').checked;settings.power=$('#sp').checked;settings.theme=$('#st').value;document.body.dataset.theme=settings.theme;saveSet();draw()}}]);$('#st').value=settings.theme};
 $('#bAbout').onclick=function(){openDlg('<h2>About &amp; Support</h2><p><b>Tail Chaser</b> by Studio 87, version 1 design mockup.</p><p>Licence: AGPL-3.0-or-later. Source: github.com/SpeakingColors/TailChaser</p><p>Your own presets live in the plugin\'s Studio 87 / Tail Chaser / presets folder (Windows: %APPDATA%, macOS: Application Support, Linux: XDG data folder).</p><p>Uninstall: use the uninstaller from the download zip. It leaves your presets unless you tell it to delete them.</p><p><a href="https://ko-fi.com/studio87" target="_blank" rel="noopener" style="color:var(--mint)">Support on Ko-fi</a></p>',[{t:'Close'}])};
 

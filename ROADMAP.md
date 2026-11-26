@@ -1,10 +1,12 @@
 # Roadmap
 
 Done
-- Detection core in JS (core/tailchaser_core.js), 20 synthetic tests (incl. crossover ripple, click and echo-vs-new-sound tests) (tests/test_core.js)
-- Design mockup v1.4 (docs/mockups/TailChaser_mockup_v1.4.html): combined Cut lane, Bands view toggle, Smooth knob, pink and cut-start marker drawn from the real gain curve
+- Detection core in JS (core/tailchaser_core.js), 28 synthetic checks (ripple, clicks, echo vs new sound, echo timing, Center)
+- Design mockup v1.5 (docs/mockups/TailChaser_mockup_v1.5.html): Echo time (Auto or set), Sync to tempo, Center (stereo-aware), octave onset detection, held-note guard
 
 Next
+- Real music tests (needs files from the user)
+- Optional AI dereverb render mode: research open models with licences that fit AGPL first
 - C++/JUCE port of the core with a parity test against the JS core
 - Port the mockup window natively (same layout, looks, tooltips)
 - Scan mode in the host: analyse while the track plays, then exact cuts
@@ -17,7 +19,9 @@ Next
 
 Known limits
 - Tested on synthetic signals only, not yet on real music or by ear
-- A soft ghost note of the SAME drum after a loud hit can still count as an echo: lower Echo
+- A ghost note of the same drum exactly on the delay time grid counts as an echo; set Echo time by hand or lower Echo
+- In a full mix, delay echoes under busy drums are only partly cut: use it on the delay bus or the instrument track
+- Very quiet low notes (under 500 Hz) hidden under a louder low tail are not seen as new notes and can lose a few dB
 
 Latency note
 - 1 band: no delay. Several bands: the core uses zero-phase crossovers (measured: no boost or dip when one band is cut). The plugin needs linear phase FIR crossovers that add a reported delay; the figure will be measured in the port.

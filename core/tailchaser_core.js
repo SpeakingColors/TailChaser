@@ -27,6 +27,8 @@
     smooth: 3,       // ms: rounds the corners of every cut (0 = off, max 6)
     sens: 6,         // dB rise that counts as a hit
     echoMatch: 6,    // dB: an echo must sound like the hit it follows (spectrum shape within this)
+    echoTime: 0,     // ms: delay time of the echoes; 0 = find it from the repeats (Auto)
+    center: 100,     // %: how much of the cut hits the middle of the stereo picture (100 = same as the sides)
     mix: 100,        // % wet
     amount: [100, 100, 100, 100] // % of depth per band
   };
@@ -109,7 +111,16 @@
     if (nb === 1) { bl = [L]; br = [R]; }
     else { bl = split(L, sr, nb, xo); br = split(R, sr, nb, xo); }
     var envs = [], hop = 0;
-    for (var b = 0; b < nb; b++) { var e = envelope(bl[b], br[b], sr); envs.push(e.env); hop = e.hop; }
+    var sfr = [];
+    for (var b = 0; b < nb; b++) {
+      var e = envelope(bl[b], br[b], sr); envs.push(e.env); hop = e.hop;
+      // share of the band's power that is in the sides (L-R), per hop
+      var n0 = bl[b].length, M = new Float32Array(n0), S = new Float32Array(n0);
+      for (var i0 = 0; i0 < n0; i0++) { M[i0] = 0.5 * (bl[b][i0] + br[b][i0]); S[i0] = 0.5 * (bl[b][i0] - br[b][i0]); }
+      var em = envelope(M, null, sr).env, es = envelope(S, null, sr).env, f0 = new Float32Array(em.length);
+      for (var h0 = 0; h0 < em.length; h0++) { var pm = Math.pow(10, em[h0] / 10), ps = Math.pow(10, es[h0] / 10); f0[h0] = pm + ps > 1e-12 ? ps / (pm + ps) : 0; }
+      sfr.push(f0);
+    }
     // Sound fingerprint: level in 8 octave bands (63 Hz to 8 kHz), used to
     // tell an echo (a repeat of the same sound) from a new, different sound.
     var fp = [], fc = [63, 125, 250, 500, 1000, 2000, 4000, 8000];
@@ -118,32 +129,46 @@
       var x = zp('lp', fc[f] * 1.41, sr, zp('hp', fc[f] / 1.41, sr, mono));
       fp.push(envelope(x, null, sr).env);
     }
-    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3), fp: fp };
+    return { sr: sr, n: L.length, nb: nb, hop: hop, envs: envs, bandL: bl, bandR: br, xo: xo.slice(0, 3), fp: fp, sideFrac: sfr };
   }
 
   /* ---------- decide where the tails are ---------- */
-  function deriveBand(env, p, amountPct, fp) {
+  function deriveBand(env, p, amountPct, fp, octs, cmp) {
     var N = env.length, ms = function (v) { return Math.max(0, Math.round(v / HOP_MS)); };
     var gain = new Float32Array(N), tails = [], hits = [];
-    var k = 12, cands = [], last = -1e9;
-    for (var i = k; i < N; i++) {
-      if (env[i] < -85 || i - last < 40) continue;
-      var mn = 1e9;
-      for (var j = i - k; j < i; j++) if (env[j] < mn) mn = env[j];
-      if (env[i] - mn >= p.sens && env[i] >= env[i - 1]) {
-        // walk back to where the rise began
-        var s = i; while (s > 1 && env[s - 1] < env[s] - 0.3 && i - s < 12) s--;
-        cands.push(s); last = i;
+    // New sounds: a quick rise in the band level, OR a quick rise in one of the
+    // octave bands inside this band (a hi-hat over a louder kick tail barely
+    // moves the overall level, but jumps in the high octaves). An octave rise
+    // only counts if that octave is audible (above -60 dBFS and within 40 dB
+    // of the band level) and jumps 6 dB more than Hit sens; the low octaves
+    // wobble too much in 10 ms and are left out (below 500 Hz).
+    function rises(e, gate) {
+      var out = [], k = gate ? 12 : 20, last = -1e9;
+      for (var i = k; i < N; i++) {
+        if (e[i] < -85 || i - last < 40) continue;
+        if (gate && e[i] < Math.max(-60, env[i] - 40)) continue;
+        var mn = 1e9;
+        for (var j = i - k; j < i; j++) if (e[j] < mn) mn = e[j];
+        if (e[i] - mn >= p.sens + (gate ? 6 : 0) && e[i] >= e[i - 1]) {
+          var s = i; while (s > 1 && e[s - 1] < e[s] - 0.3 && i - s < k) s--;
+          out.push(s); last = i;
+        }
       }
+      return out;
     }
+    var all = rises(env, false);
+    if (fp && octs) for (var o = 0; o < octs.length; o++) all = all.concat(rises(fp[octs[o]], true));
+    all.sort(function (x, y) { return x - y; });
+    var cands = [];
+    for (var c0 = 0; c0 < all.length; c0++) if (!cands.length || all[c0] - cands[cands.length - 1] >= 40) cands.push(all[c0]);
     // peak of each candidate, then echo guard
     var peakWin = 120, lastPeak = -1e9, lastIdx = -1e9, echoWin = 2000, lastShape = null;
     // Shape of what a sound ADDED (power at its peak minus power just before
     // it started), per fingerprint band, normalised to its own loudest band.
     function shape(a, ip) {
       if (!fp) return null;
-      var v = [], mx = -1e9, pre = Math.max(0, a - 3);
-      for (var f = 0; f < fp.length; f++) {
+      var v = [], mx = -1e9, pre = Math.max(0, a - 3), use = cmp || [0, 1, 2, 3, 4, 5, 6, 7];
+      for (var u0 = 0; u0 < use.length; u0++) { var f = use[u0];
         var d = Math.pow(10, fp[f][ip] / 10) - Math.pow(10, fp[f][pre] / 10);
         var db = 10 * Math.log10(Math.max(d, 1e-12)); v.push(db); if (db > mx) mx = db;
       }
@@ -152,20 +177,77 @@
     }
     function sameSound(x, y) {
       if (!x || !y) return true; // no fingerprint: old level-only rule
-      var s = 0, c = 0;
-      for (var f = 0; f < x.length; f++) if (x[f] > -30 || y[f] > -30) { s += Math.abs(x[f] - y[f]); c++; }
-      return c > 0 && s / c <= (p.echoMatch === undefined ? 6 : p.echoMatch);
+      // median difference, so one octave spoiled by another sound (a kick
+      // landing under an echo) cannot break the match
+      var ds = [];
+      for (var f = 0; f < x.length; f++) if (x[f] > -30 || y[f] > -30) ds.push(Math.abs(x[f] - y[f]));
+      if (!ds.length) return false;
+      ds.sort(function (q, r) { return q - r; });
+      var med = ds.length % 2 ? ds[ds.length >> 1] : 0.5 * (ds[(ds.length >> 1) - 1] + ds[ds.length >> 1]);
+      return med <= (p.echoMatch === undefined ? 6 : p.echoMatch);
     }
+    // Pass 1: every candidate with its peak and tone.
+    var C = [];
     for (var c = 0; c < cands.length; c++) {
       var a = cands[c], pk = -1e9, ip = a;
       for (var q = a; q < Math.min(N, a + peakWin); q++) if (env[q] > pk) { pk = env[q]; ip = q; }
-      var sh = shape(a, ip);
-      // echo: quieter than the last hit, soon after it, AND the same sound
-      if (p.echo > 0 && a - lastIdx <= echoWin && pk < lastPeak - p.echo && sameSound(sh, lastShape)) continue;
-      hits.push({ a: a, peak: pk, ip: ip }); lastPeak = pk; lastIdx = a; lastShape = sh;
+      C.push({ a: a, peak: pk, ip: ip, sh: shape(a, ip) });
     }
-    var depth = p.depth * (amountPct / 100);
-    if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits };
+    // Pass 2: echo guard with timing. A quieter sound with the same tone is an
+    // echo only if it sits on the echo grid: a multiple of the delay time after
+    // the hit. The delay time is set (echoTime) or found from a repeat pattern
+    // (a second repeat at twice the spacing). A single same-tone ghost note off
+    // the grid stays a hit.
+    var tol = 15, fixedD = p.echoTime > 0 ? p.echoTime / HOP_MS : 0, songD = fixedD, echoTimes = [];
+    function onGrid(d, D) { if (!D) return false; var k = Math.round(d / D); return k >= 1 && k <= 16 && Math.abs(d - k * D) <= tol; }
+    // An echo is matched to the most recent LOUDER sound with the SAME tone
+    // (other sounds may play in between, like drums under a delayed stab).
+    function sourceOf(x, list) {
+      for (var r = list.length - 1; r >= 0; r--) {
+        var h = list[r];
+        if (x.a - h.a > echoWin) break;
+        if (x.peak < h.peak - p.echo && sameSound(x.sh, h.sh)) return h;
+      }
+      return null;
+    }
+    // Song-wide pattern: the same spacing from a sound to a quieter copy of
+    // it, at the same level drop, seen 4 or more times = the delay time, even
+    // when the second repeat is hidden under the next note.
+    if (!fixedD && p.echo > 0) {
+      var pairs = [], seen = [];
+      for (var c1 = 0; c1 < C.length; c1++) {
+        var z = C[c1], h0 = sourceOf(z, seen);
+        if (h0) pairs.push({ d: z.a - h0.a, drop: h0.peak - z.peak }); else seen.push(z);
+      }
+      var best = 0, bestN = 0;
+      for (var i1 = 0; i1 < pairs.length; i1++) {
+        var cnt = 0, sum = 0;
+        for (var i2 = 0; i2 < pairs.length; i2++)
+          if (Math.abs(pairs[i2].d - pairs[i1].d) <= tol && Math.abs(pairs[i2].drop - pairs[i1].drop) <= 3) { cnt++; sum += pairs[i2].d; }
+        if (cnt > bestN) { bestN = cnt; best = sum / cnt; }
+      }
+      if (bestN >= 4) songD = best;
+    }
+    var real = [];
+    for (var c2 = 0; c2 < C.length; c2++) {
+      var x = C[c2], isEcho = false, src = p.echo > 0 ? sourceOf(x, real) : null;
+      if (src) {
+        var d = x.a - src.a;
+        if (onGrid(d, src.D || songD)) isEcho = true;
+        else if (!fixedD) {
+          for (var m = c2 + 1; m < C.length && C[m].a - src.a <= 2 * d + tol; m++) {
+            var y = C[m];
+            if (Math.abs((y.a - src.a) - 2 * d) <= tol && y.peak <= x.peak + 1.5 && sameSound(y.sh, src.sh)) {
+              isEcho = true; src.D = d; if (!songD) songD = d; break;
+            }
+          }
+        }
+      }
+      if (isEcho) continue;
+      hits.push({ a: x.a, peak: x.peak, ip: x.ip }); real.push({ a: x.a, peak: x.peak, sh: x.sh, D: 0 });
+    }
+    var depth = p.depth * (amountPct / 100), echoMs = songD ? songD * HOP_MS : 0;
+    if (depth <= 0.001) return { gain: gain, tails: tails, hits: hits, echoMs: echoMs };
     var keepH = ms(p.keep), fadeH = Math.max(1, ms(p.fade)), openH = Math.max(3, ms(p.open)), leadH = 8;
     var slopeMin = 30 * (p.guard / 100); // dB per second
     var kk = Math.pow(2, (p.curve / 100) * 2);
@@ -178,11 +260,24 @@
         for (var u = from; u < b; u++) { if (env[u] <= p.floor) { if (t0 < 0 || u < t0) { t0 = u; fromFloor = true; } break; } }
       }
       if (t0 < 0) continue;
-      if (!fromFloor) {                     // sustain guard: must really be decaying
-        var wd = Math.min(250, b - t0);
-        if (wd < 20) continue;
-        var mnv = 1e9; for (var w = t0; w < t0 + wd; w++) if (env[w] < mnv) mnv = env[w];
-        if (env[t0] - mnv < slopeMin * wd / 1000) continue;
+      if (!fromFloor && slopeMin > 0) {     // sustain guard: must KEEP decaying
+        // A tail falls (steadily, or in echo steps) or into silence. A
+        // level that drops and then holds (a kick decaying onto a held bass
+        // note) is not a tail: slide forward and look again, so the cut only
+        // starts once the held sound itself dies away.
+        var ok0 = false;
+        for (var tt = t0; tt < b - 20; tt += 10) {
+          var wd = Math.min(250, b - tt), hf = wd >> 1;
+          if (wd < 20) break;
+          var e1 = avgDb(env, tt, tt + 10), e2 = avgDb(env, tt + hf - 5, tt + hf + 5), e3 = avgDb(env, tt + wd - 10, tt + wd);
+          var need = slopeMin * wd / 1000, mn2 = 1e9, mx2 = -1e9, mnAll = 1e9;
+          for (var w = tt; w < tt + wd; w++) { if (env[w] < mnAll) mnAll = env[w]; }
+          for (var w2 = tt + hf; w2 + 20 <= tt + wd; w2 += 5) { var av = avgDb(env, w2, w2 + 20); if (av < mn2) mn2 = av; if (av > mx2) mx2 = av; }
+          if (mx2 < -1e8) { mn2 = mx2 = e3; }
+          var hold = e3 > -85 && mx2 - mn2 <= 5 && e2 - e3 < need * 0.25;  // level sits still: a held note
+          if (!hold && e1 - mnAll >= need) { t0 = tt; ok0 = true; break; }
+        }
+        if (!ok0) continue;
       }
       var iF = t0 + keepH, iE = iF + fadeH;
       var rs = (b >= N) ? N + 1e6 : b - leadH - openH;       // ramp start
@@ -204,8 +299,10 @@
       }
       tails.push({ t0: t0, from: iF, to: b >= N ? N - 1 : rs, peak: P });
     }
-    return { gain: smoothDb(gain, p.smooth), tails: tails, hits: hits };
+    return { gain: smoothDb(gain, p.smooth), tails: tails, hits: hits, echoMs: echoMs };
   }
+
+  function avgDb(e, a, b) { var s = 0, n = 0; for (var i = Math.max(0, a); i < Math.min(e.length, b); i++) { s += e[i]; n++; } return n ? s / n : -120; }
 
   /* Round the corners of a dB gain curve with a triangular kernel. Zero stays
      exactly zero wherever all neighbours are zero, so bypass stays bit exact.
@@ -228,7 +325,15 @@
      every knob change. */
   function derive(an, params) {
     var p = withDefaults(params), res = [];
-    for (var b = 0; b < an.nb; b++) res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b], an.fp));
+    for (var b = 0; b < an.nb; b++) {
+      var lo = b === 0 ? 0 : an.xo[b - 1], hi = b === an.nb - 1 ? 1e9 : an.xo[b], octs = [], fc = [63, 125, 250, 500, 1000, 2000, 4000, 8000];
+      var cmp = [];
+      for (var o = 0; o < fc.length; o++) {
+        if (fc[o] >= 500 && fc[o] >= lo && fc[o] < hi) octs.push(o);
+        if (fc[o] * 2 >= lo && fc[o] / 2 < hi) cmp.push(o);   // tone compare: the band plus one octave each side
+      }
+      res.push(deriveBand(an.envs[b], p, p.amount[b] === undefined ? 100 : p.amount[b], an.fp, octs, cmp));
+    }
     return { bands: res, params: p };
   }
 
@@ -243,16 +348,28 @@
     return g;
   }
 
+  /* Apply. With Center 100 the middle and the sides get the same cut (plain
+     gain per band). Lower Center cuts the middle less: the dry centre stays
+     natural while the wide reverb tail is still cleared. Unity gain or Mix 0
+     leaves the input bit exact. */
   function render(an, der, L, R) {
-    var n = an.n, p = der.params, mix = p.mix / 100;
-    var oL = new Float32Array(L), oR = new Float32Array(R), gm = [];
+    var n = an.n, p = der.params, mix = p.mix / 100, cen = Math.max(0, Math.min(100, p.center === undefined ? 100 : p.center)) / 100;
+    var oL = new Float32Array(L), oR = new Float32Array(R);
     for (var b = 0; b < an.nb; b++) {
       var gh = der.bands[b].gain, any = false;
       for (var i = 0; i < gh.length; i++) if (gh[i] !== 0) { any = true; break; }
-      if (!any) { gm.push(null); continue; }
-      var g = perSample(gh, an.hop, n); gm.push(g);
-      var bl = an.bandL[b], br = an.bandR[b];
-      for (var s = 0; s < n; s++) { var d = (g[s] - 1) * mix; oL[s] += d * bl[s]; oR[s] += d * br[s]; }
+      if (!any) continue;
+      var gS = perSample(gh, an.hop, n), bl = an.bandL[b], br = an.bandR[b];
+      if (cen >= 1) {
+        for (var s = 0; s < n; s++) { var d = (gS[s] - 1) * mix; oL[s] += d * bl[s]; oR[s] += d * br[s]; }
+      } else {
+        var gmh = new Float32Array(gh.length); for (var k = 0; k < gh.length; k++) gmh[k] = gh[k] * cen;
+        var gM = perSample(gmh, an.hop, n);
+        for (var s2 = 0; s2 < n; s2++) {
+          var dm = (gM[s2] - 1) * mix * 0.5 * (bl[s2] + br[s2]), ds = (gS[s2] - 1) * mix * 0.5 * (bl[s2] - br[s2]);
+          oL[s2] += dm + ds; oR[s2] += dm - ds;
+        }
+      }
     }
     return { L: oL, R: oR };
   }

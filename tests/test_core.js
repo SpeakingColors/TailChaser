@@ -143,4 +143,50 @@ function run(sig, params) { const p = TC.withDefaults(params); const an = TC.ana
   const ch = rmsDb(r.o.L, i0, i1) - rmsDb(s.L, i0, i1);
   ok('T12 hi-hat after a snare is not taken for an echo', ch > -1, 'change ' + ch.toFixed(1) + ' dB');
 }
+// T13 echo timing: a single ghost note of the same drum (no repeat pattern) stays --
+{
+  seed = 13; const s = mk(3);
+  both(s, b => { hit(b, 0.5, 300, 0.8, 60); hit(b, 0.5 + 0.2, 300, 0.8 * 0.18, 60); hit(b, 1.6, 300, 0.8, 60); });
+  const on = run(s, { bands: 1, echo: 8, tailStart: 12, keep: 10, fade: 40 });
+  const i0 = Math.round(0.7 * SR), i1 = i0 + Math.round(0.03 * SR);
+  const ch = rmsDb(on.o.L, i0, i1) - rmsDb(s.L, i0, i1);
+  ok('T13 single ghost note of the same drum is kept', ch > -1, 'change ' + ch.toFixed(1) + ' dB');
+  const fx = run(s, { bands: 1, echo: 8, echoTime: 200, tailStart: 12, keep: 10, fade: 40 });
+  const ch2 = rmsDb(fx.o.L, i0, i1) - rmsDb(s.L, i0, i1);
+  ok('T13 same note is cut when Echo time is set to its delay (200 ms)', ch2 < -20, 'change ' + ch2.toFixed(1) + ' dB');
+}
+// T14 a single echo later in the song is cut once the delay time is known ----
+{
+  seed = 14; const s = mk(4);
+  both(s, b => { for (let k = 0; k < 4; k++) hit(b, 0.3 + k * 0.375, 400, 0.8 * Math.pow(0.35, k), 80);
+                 hit(b, 2.2, 400, 0.8, 80); hit(b, 2.2 + 0.375, 400, 0.8 * 0.3, 80); });
+  const r = run(s, { bands: 1, echo: 8 });
+  const i0 = Math.round(2.575 * SR), i1 = i0 + Math.round(0.05 * SR);
+  const ch = rmsDb(r.o.L, i0, i1) - rmsDb(s.L, i0, i1);
+  ok('T14 lone echo on the learned 375 ms grid is cut', ch < -20, 'change ' + ch.toFixed(1) + ' dB, found ' + r.d.bands[0].echoMs + ' ms');
+}
+// T15 Center: mono content untouched at Center 0, wide tail still cut, bypass exact --
+{
+  seed = 15; const s = mk(3);
+  hit(s.L, 0.5, 200, 0.8, 60); s.R.set(s.L);
+  const t1 = new Float32Array(s.L.length), t2 = new Float32Array(s.L.length); tail(t1, 0.5, 0.05, 1.5, 100); seed = 151; tail(t2, 0.5, 0.05, 1.5, 100);
+  const mono = mk(3); for (let i = 0; i < s.L.length; i++) { const m = 0.6 * t1[i]; mono.L[i] = s.L[i] + m; mono.R[i] = s.R[i] + m; s.L[i] += t1[i]; s.R[i] += t2[i]; }
+  const rm = run(mono, { bands: 1, center: 0 }); let md = 0; for (let i = 0; i < mono.L.length; i++) md = Math.max(md, Math.abs(rm.o.L[i] - mono.L[i]));
+  ok('T15 Center 0 leaves a mono tail untouched', md < 1e-6, 'max diff ' + md.toExponential(1));
+  const rw = run(s, { bands: 1, center: 0 }); const side = x => { const o = new Float32Array(x.L.length); for (let i = 0; i < o.length; i++) o[i] = 0.5 * (x.L[i] - x.R[i]); return o; };
+  const ch = rmsDb(side(rw.o), 1.6 * SR, 2.0 * SR) - rmsDb(side(s), 1.6 * SR, 2.0 * SR);
+  ok('T15 Center 0 still cuts the wide part of the tail', ch < -30, 'side change ' + ch.toFixed(1) + ' dB');
+  const rb = run(s, { bands: 3, center: 40, mix: 0 }); let bd = 0; for (let i = 0; i < s.L.length; i++) bd = Math.max(bd, Math.abs(rb.o.L[i] - s.L[i]), Math.abs(rb.o.R[i] - s.R[i]));
+  ok('T15 Mix 0 with Center 40 is bit exact', bd === 0, 'diff ' + bd);
+}
+// T16 delay whose 2nd repeat is hidden under the next note: learned from the song --
+{
+  seed = 16; const s = mk(6);
+  both(s, b => { for (let k = 0; k < 7; k++) { const t = 0.3 + k * 0.7; hit(b, t, 500, 0.6, 70); hit(b, t + 0.35, 500, 0.6 * 0.3, 70); } });
+  const r = run(s, { bands: 1, echo: 8 });
+  let worst = -999; for (let k = 0; k < 7; k++) { const i0 = Math.round((0.3 + k * 0.7 + 0.35) * SR), i1 = i0 + Math.round(0.04 * SR); worst = Math.max(worst, rmsDb(r.o.L, i0, i1) - rmsDb(s.L, i0, i1)); }
+  ok('T16 every repeat cut when the pattern is only visible across the song', worst < -20, 'weakest cut ' + (-worst).toFixed(1) + ' dB, found ' + r.d.bands[0].echoMs + ' ms');
+  let hd = 0; for (let k = 0; k < 7; k++) { const i0 = Math.round((0.3 + k * 0.7) * SR); for (let i = i0; i < i0 + 0.03 * SR; i++) hd = Math.max(hd, Math.abs(r.o.L[i] - s.L[i])); }
+  ok('T16 the notes themselves untouched', hd < 1e-6, 'max diff ' + hd.toExponential(1));
+}
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall passed'); process.exit(fails ? 1 : 0);
