@@ -8,6 +8,7 @@ Try the mockup: open `docs/mockup/index.html` in a browser (it plays demo sounds
 
 ## What it does
 
+- Auto: listens to the audio and sets the main knobs for it (with Undo)
 - Finds hits and the tails that follow them, per band
 - Echo guard removes delay repeats: it learns the delay time and only removes repeats that sound like the note and sit on that time grid
 - Sync to tempo for Keep, Fade and Echo time; Center keeps the dry middle and clears the wide reverb

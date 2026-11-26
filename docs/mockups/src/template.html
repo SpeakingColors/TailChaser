@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tail Chaser v1.7 design mockup</title>
+<title>Tail Chaser v1.8 design mockup</title>
 <style>
 /*FONTS*/
 :root{--w:1360px;--h:800px}
@@ -46,6 +46,7 @@ button.dis{opacity:.4;pointer-events:none}
 .knob .l{font-size:14px;font-weight:600;color:var(--sky);line-height:14px;margin-top:-2px;text-align:center}
 .knob .v{font:500 12px 'JetBrains Mono',monospace;color:var(--yel);background:var(--dp);border:1px solid var(--ln);border-radius:4px;padding:0 4px;margin-top:2px;white-space:nowrap}
 .knob.off{opacity:.35}
+.knob.flash .v{background:var(--sel);border-color:var(--selb);transition:background .2s}
 .seg{display:flex;flex-direction:column;align-items:center;width:112px}
 .seg .l{font-size:14px;font-weight:600;color:var(--sky)}
 .seg .b{display:flex;margin-top:6px}
@@ -97,10 +98,11 @@ button.dis{opacity:.4;pointer-events:none}
    <div id="left">
     <div class="card" id="disp">
      <canvas id="cv"></canvas>
+     <div id="autoMsg" style="display:none;align-items:center;gap:8px;margin:4px 0 0;font:500 13px JetBrains Mono,monospace;color:var(--yel)"><span id="autoTxt"></span><button id="bUndo" style="height:22px;padding:0 8px">Undo</button></div>
      <div id="chips">
       <button id="bView" data-tip="Wave: the real waveform, like the clip in your DAW. Removed part in pink, cut region shaded. dB: the level in dB, which makes quiet tails look big.">View: Wave</button>
       <button id="bBands" data-tip="Show one lane per frequency band (low, mid, high) instead of the single combined Cut lane. Technical: only needed to see which band is being cut.">Bands</button>
-      <button id="bScan" class="mint" data-tip="Finds every tail automatically and shows it shaded, like a selection in your DAW: orange line = tail starts, faint = kept (Keep), stronger = being cut. In the plugin it scans while the host plays the track once; after that knob changes are instant.">Auto-find tails</button>
+      <button id="bScan" class="mint" data-tip="Listens to the audio and sets Tail start, Floor, Keep, Fade, Echo and Echo time to suit it. The changed knobs flash and a line says why. Undo puts your settings back. In the plugin it listens while the host plays the track once.">Auto</button>
       <span class="chip">Tails <b id="cTails">0</b></span>
       <span class="chip" data-tip="Echo delay time in use: found from the repeats (Auto) or set with Echo time. none = no repeat pattern found, so no sound is treated as an echo.">Echo <b id="cEcho">none</b></span>
       <span class="chip" data-tip="How much of the clip has a cut of 3 dB or more in at least one band.">Tidied <b id="cRem">0</b> %</span>
@@ -138,7 +140,7 @@ button.dis{opacity:.4;pointer-events:none}
    <div style="display:flex;justify-content:center;margin:8px 0 4px"><button id="bSync" style="width:130px" data-tip="Keep, Fade and Echo time in note values that follow the song tempo. In the plugin the tempo comes from your DAW.">Sync &middot; <span id="cBpm">128</span> BPM</button></div>
    </div>
   </div>
-  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.7 design mockup</span><span id="zoom">100%</span></div>
+  <div id="foot"><span>Studio 87 &middot; Tail Chaser v1.8 design mockup</span><span id="zoom">100%</span></div>
  </div>
  <div class="cheek" id="chR"><canvas></canvas></div>
  <div id="modal"><div id="dlg"></div></div>
@@ -438,7 +440,18 @@ $('#sSrc').onchange=function(){if(this.value==='file'){$('#fFile').click();retur
 $('#fFile').onchange=function(){var f=this.files[0];if(!f||!ctx)return;var fr=new FileReader();fr.onload=function(){ctx.decodeAudioData(fr.result,function(buf){
  stopAudio();posS=0;var n=Math.min(buf.length,Math.floor(30*buf.sampleRate)),L=new Float32Array(n),R=new Float32Array(n);buf.copyFromChannel(L,0);buf.copyFromChannel(R,buf.numberOfChannels>1?1:0);
  SR=buf.sampleRate;DUR=n/SR;sig={L:L,R:R};envIn=null;bufs={};analyseNow();scan=0},function(){alert('Could not read that file.')})};fr.readAsArrayBuffer(f)};
-$('#bScan').onclick=function(){scan=0;draw()};
+var autoPrev=null,autoT=0;
+$('#bScan').onclick=function(){
+ var sg=TC.suggest(an,coreParams()),before={},changed=[],names={tailStart:'Tail start',floor:'Floor',keep:'Keep',fade:'Fade',echo:'Echo',echoTime:'Echo time'};
+ Object.keys(sg.params).forEach(function(id){before[id]=P[id];var k=KM[id];if(!k)return;var v=Math.max(k.min,Math.min(k.max,sg.params[id]));
+  if(k.sync!==undefined&&P.sync){var li=noteList(k),best=0,bd=1e9;li.forEach(function(e,ix){var ms=noteMs(e[1]);if(k.auto&&ix===0&&v!==0)return;var d=Math.abs(ms-v);if(d<bd){bd=d;best=ix}});before[id+'N']=P[id+'N'];P[id+'N']=best;v=Math.round(noteMs(li[best][1]))}
+  if(P[id]!==v){changed.push(id);P[id]=v}});
+ autoPrev=before;refreshKnobs();
+ changed.forEach(function(id){var e=knobEls[id];e.classList.add('flash');setTimeout(function(){e.classList.remove('flash')},1600)});
+ $('#autoTxt').textContent='Auto: '+(changed.length?changed.map(function(id){return names[id]+' '+fmt(KM[id],P[id])}).join(', '):'settings already fit')+'  ('+sg.why.join('; ')+')';
+ $('#autoMsg').style.display='flex';clearTimeout(autoT);autoT=setTimeout(function(){$('#autoMsg').style.display='none'},15000);
+ deriveNow();scan=0;draw()};
+$('#bUndo').onclick=function(){if(!autoPrev)return;Object.keys(autoPrev).forEach(function(id){P[id]=autoPrev[id]});autoPrev=null;refreshKnobs();deriveNow();$('#autoMsg').style.display='none'};
 function resync(){K.forEach(function(k){if(k.sync!==undefined&&P.sync){P[k.id]=Math.round(noteMs(noteList(k)[P[k.id+'N']][1]))}});$('#bSync').classList.toggle('on',!!P.sync);$('#cBpm').textContent=P.bpm;refreshKnobs();soon()}
 $('#bSync').onclick=function(){P.sync=P.sync?0:1;resync()};
 $('#iBpm').onchange=function(){var v=+this.value;if(!(v>=40&&v<=300)){this.value=P.bpm;return}P.bpm=v;resync()};
@@ -473,7 +486,7 @@ $('#pExp').onclick=function(){var t=JSON.stringify({tailchaser:1,name:curName,pa
 $('#pImp').onclick=function(){openDlg('<h2>Import preset</h2><p>Paste the preset text.</p><textarea id="dx"></textarea><p id="de" style="color:var(--pink)"></p>',[{t:'Import',c:'mint',f:function(){try{var o=JSON.parse($('#dx').value);if(!o||o.tailchaser!==1||typeof o.params!=='object')throw 0;var p={};K.forEach(function(k){var v=o.params[k.id];if(typeof v==='number'&&isFinite(v))p[k.id]=Math.max(k.min,Math.min(k.max,v));if(k.sync!==undefined){var nv=o.params[k.id+'N'];if(typeof nv==='number'&&isFinite(nv))p[k.id+'N']=Math.max(0,Math.min(noteList(k).length-1,Math.round(nv)))}});p.sync=o.params.sync?1:0;
  if(typeof o.params.bands==='number')p.bands=Math.max(1,Math.min(4,Math.round(o.params.bands)));var n=uniq(String(o.name||'Imported').slice(0,40));user.push({n:n,p:p});saveUser();curName=n;applyP(p);fillSel()}catch(e){$('#de').textContent='That is not a Tail Chaser preset.';return false}}},{t:'Cancel'}])};
 
-$('#bGuide').onclick=function(){openDlg('<h2>Guide</h2><ul><li><b>What it does:</b> finds the tails of reverb and delay (and any quiet leftovers) and fades them out, so the mix stays tight with more silence between hits.</li><li><b>Scan:</b> in the plugin, play the track once. The plugin learns where every hit and tail is, then reads the cut curve exactly, with no delay. Knobs work instantly after a scan.</li><li><b>The display:</b> lavender = original level, mint = cleaned level, pink = what was removed. Each band has its own lane; yellow triangles are hits, orange lines are where a tail starts.</li><li><b>Start here:</b> Depth sets how much, Keep and Fade set how natural it sounds, Tail start sets where the tail begins.</li><li><b>Check it:</b> press 3 (Removed). Hear only what is cut. If you hear notes, back off.</li><li><b>Delays:</b> Echo removes repeats. Echo time on Auto learns the delay time from the song (shown in the Echo chip); a quiet note that is not on that time grid is kept. Set it by hand if Auto shows none.</li><li><b>Sync:</b> Keep, Fade and Echo time in note values that follow the tempo.</li><li><b>Center:</b> lower it to keep the dry middle natural and clear mostly the wide reverb at the sides.</li></ul><p>Keys: <kbd>Space</kbd> play/stop &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> original/cleaned/removed &nbsp; <kbd>Home</kbd> to start &nbsp; double-click a knob to reset it.</p>',[{t:'Close'}])};
+$('#bGuide').onclick=function(){openDlg('<h2>Guide</h2><ul><li><b>What it does:</b> finds the tails of reverb and delay (and any quiet leftovers) and fades them out, so the mix stays tight with more silence between hits.</li><li><b>Scan:</b> in the plugin, play the track once. The plugin learns where every hit and tail is, then reads the cut curve exactly, with no delay. Knobs work instantly after a scan.</li><li><b>The display:</b> lavender = original level, mint = cleaned level, pink = what was removed. Each band has its own lane; yellow triangles are hits, orange lines are where a tail starts.</li><li><b>Start here:</b> press <b>Auto</b>. It listens to the audio and sets Tail start, Floor, Keep, Fade and Echo time for it; the changed knobs flash and a line says why. Undo puts your settings back. Then Depth sets how much is removed.</li><li><b>Check it:</b> press 3 (Removed). Hear only what is cut. If you hear notes, back off.</li><li><b>Delays:</b> Echo removes repeats. Echo time on Auto learns the delay time from the song (shown in the Echo chip); a quiet note that is not on that time grid is kept. Set it by hand if Auto shows none.</li><li><b>Sync:</b> Keep, Fade and Echo time in note values that follow the tempo.</li><li><b>Center:</b> lower it to keep the dry middle natural and clear mostly the wide reverb at the sides.</li></ul><p>Keys: <kbd>Space</kbd> play/stop &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> original/cleaned/removed &nbsp; <kbd>Home</kbd> to start &nbsp; double-click a knob to reset it.</p>',[{t:'Close'}])};
 $('#bSet').onclick=function(){openDlg('<h2>Settings</h2><label><input type="checkbox" id="sb"'+(settings.bubbles?' checked':'')+'> Info bubbles</label><label><input type="checkbox" id="sp"'+(settings.power?' checked':'')+'> Power saving (slower display)</label><label>Look <select id="st"><option value="a">A Neon Navy</option><option value="b">B Purple Soda Pop</option><option value="c">C PurrOne</option></select></label>',[{t:'OK',c:'mint',f:function(){settings.bubbles=$('#sb').checked;settings.power=$('#sp').checked;settings.theme=$('#st').value;document.body.dataset.theme=settings.theme;saveSet();draw()}}]);$('#st').value=settings.theme};
 $('#bAbout').onclick=function(){openDlg('<h2>About &amp; Support</h2><p><b>Tail Chaser</b> by Studio 87, version 1 design mockup.</p><p>Licence: AGPL-3.0-or-later. Source: github.com/SpeakingColors/TailChaser</p><p>Your own presets live in the plugin\'s Studio 87 / Tail Chaser / presets folder (Windows: %APPDATA%, macOS: Application Support, Linux: XDG data folder).</p><p>Uninstall: use the uninstaller from the download zip. It leaves your presets unless you tell it to delete them.</p><p><a href="https://ko-fi.com/studio87" target="_blank" rel="noopener" style="color:var(--mint)">Support on Ko-fi</a></p>',[{t:'Close'}])};
 

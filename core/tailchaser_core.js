@@ -382,7 +382,67 @@
     return { tails: tails, removedDb: 10 * Math.log10((eOut + 1e-20) / (eIn + 1e-20)), maxCut: maxCut };
   }
 
+  /* Auto: listen to the clip and suggest settings for it.
+     - Floor: 6 dB above the noise floor (10th percentile of the level where
+       there is sound), so steady hiss and bleed between hits go.
+     - Tail start: for each hit, where the fast drop of the hit turns into
+       the slow fall of the tail (the decay slope falls below a quarter of
+       its steepest value); median over the hits.
+     - Keep and Fade: from the typical spacing between hits (12 % and 30 %).
+     - Echo time: the delay time found from the repeats, if there is one.
+     Returns { params, why } so the page can show what changed and why. */
+  function suggest(an, cur) {
+    var p = withDefaults(cur || {}), nb = an.nb, n = an.envs[0].length, env = new Float32Array(n);
+    for (var i = 0; i < n; i++) { var s = 0; for (var b = 0; b < nb; b++) s += Math.pow(10, an.envs[b][i] / 10); env[i] = 10 * Math.log10(s + 1e-12); }
+    var why = [], out = {};
+    // noise floor
+    var lv = []; for (var i1 = 0; i1 < n; i1 += 2) if (env[i1] > -100) lv.push(env[i1]);
+    lv.sort(function (x, y) { return x - y; });
+    var p10 = lv.length ? lv[Math.floor(lv.length * 0.1)] : -120;
+    // hits on the whole sound (1 band, plain level rule)
+    // (echo guard on, so delay repeats are not counted as hits)
+    var one = deriveBand(env, withDefaults({ echo: 8, depth: 60 }), 100, an.fp, [3, 4, 5, 6, 7], [0, 1, 2, 3, 4, 5, 6, 7]), hits = one.hits;
+    var pkAll = hits.map(function (x) { return x.peak; }).sort(function (x, y) { return x - y; });
+    var loud = pkAll.length ? pkAll[Math.floor(pkAll.length * 0.75)] : 0;
+    // Floor only for real noise: the quiet part must sit 45 dB or more under
+    // the hits (otherwise it is music: held bass, pads) and never above -55.
+    if (p10 <= -88) { out.floor = -90; why.push('clean silence between sounds, Floor off'); }
+    else if (loud - p10 >= 45) { out.floor = Math.max(-90, Math.min(-55, Math.round(p10 + 6))); why.push('noise floor ' + Math.round(p10) + ' dB'); }
+    else why.push('quiet parts are music, not noise: Floor left as it was');
+    if (hits.length < 2) { why.push('fewer than 2 hits found, timing left as it was'); return { params: out, why: why, hits: hits.length }; }
+    var gaps = [], knees = [];
+    for (var m0 = 0; m0 + 1 < hits.length; m0++) gaps.push(hits[m0 + 1].a - hits[m0].a);
+    if (!gaps.length) gaps.push(n);
+    for (var h = 0; h < hits.length; h++) {
+      var a = hits[h].ip, end = h + 1 < hits.length ? hits[h + 1].a : n;
+      if (end - a < 120) continue;
+      var sl = [], mx = 0;
+      for (var t = a; t + 10 < Math.min(end, a + 1500); t += 5) { var d = (env[t] - env[t + 10]) / 10; sl.push([t, d]); if (t < a + 60 && d > mx) mx = d; }
+      if (mx <= 0.02) continue;
+      // how fast the tail itself falls: median slope over the later part
+      var late = sl.slice(Math.floor(sl.length * 0.4)).map(function (q) { return q[1]; }).sort(function (x, y) { return x - y; });
+      var ls = late.length ? Math.max(0, late[Math.floor(late.length / 2)]) : 0, thr = Math.max(0.25 * mx, 1.6 * ls);
+      if (thr >= 0.8 * mx) continue;   // no clear turn: the hit fades like its tail
+      for (var k = 2; k < sl.length; k++) {
+        if (sl[k][1] < thr && sl[k - 1][1] < thr) { var drop = hits[h].peak - env[sl[k][0]]; if (drop > 3) knees.push(drop); break; }
+      }
+    }
+    function med(v) { v = v.slice().sort(function (x, y) { return x - y; }); return v[Math.floor(v.length / 2)]; }
+    if (knees.length) { out.tailStart = Math.max(8, Math.min(36, Math.round(med(knees)))); why.push('hits turn into tails about ' + out.tailStart + ' dB under their peak'); }
+    var g = med(gaps) * HOP_MS;
+    out.keep = Math.max(10, Math.min(400, Math.round(g * 0.12)));
+    out.fade = Math.max(20, Math.min(1200, Math.round(g * 0.3)));
+    why.push('hits about ' + Math.round(g) + ' ms apart');
+    // delay time with the suggested settings
+    var tryP = withDefaults(Object.assign({}, cur, out, { echoTime: 0, echo: cur && cur.echo > 0 ? cur.echo : 8 }));
+    var dv = derive(an, tryP), em = 0;
+    dv.bands.forEach(function (bd) { if (bd.echoMs > em) em = bd.echoMs; });
+    if (em) { out.echo = tryP.echo; out.echoTime = Math.round(em); why.push('delay repeats every ' + Math.round(em) + ' ms'); }
+    else { out.echoTime = 0; why.push('no delay pattern found'); }
+    return { params: out, why: why, hits: hits.length };
+  }
+
   var API = { envelope: envelope, DEFAULTS: DEFAULTS, HOP_MS: HOP_MS, WIN_MS: WIN_MS, withDefaults: withDefaults,
-    analyze: analyze, derive: derive, render: render, stats: stats, perSample: perSample };
+    analyze: analyze, derive: derive, render: render, stats: stats, perSample: perSample, suggest: suggest };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TC = API;
 })(typeof self !== 'undefined' ? self : this);

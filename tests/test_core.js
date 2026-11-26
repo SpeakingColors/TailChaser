@@ -189,4 +189,14 @@ function run(sig, params) { const p = TC.withDefaults(params); const an = TC.ana
   let hd = 0; for (let k = 0; k < 7; k++) { const i0 = Math.round((0.3 + k * 0.7) * SR); for (let i = i0; i < i0 + 0.03 * SR; i++) hd = Math.max(hd, Math.abs(r.o.L[i] - s.L[i])); }
   ok('T16 the notes themselves untouched', hd < 1e-6, 'max diff ' + hd.toExponential(1));
 }
+// T17 Auto: finds the hit-to-tail turn, the noise floor and the delay time ----
+{
+  seed = 17; const s = mk(6);
+  both(s, b => { for (let k = 0; k < 8; k++) { const t = 0.3 + k * 0.7; hit(b, t, 300, 0.7, 40); tail(b, t, 0.04, 1.0, 100); hit(b, t + 0.35, 300, 0.7 * 0.25, 40); } for (let i = 0; i < b.length; i++) b[i] += 0.0006 * rnd(); });
+  const an = TC.analyze(s.L, s.R, SR, 3, [250, 3000, 8000]), sg = TC.suggest(an, {});
+  ok('T17 Auto sets Floor just above the noise', sg.params.floor > -75 && sg.params.floor < -50, 'Floor ' + sg.params.floor + ' (' + sg.why[0] + ')');
+  ok('T17 Auto finds where hits turn into tails', sg.params.tailStart >= 8 && sg.params.tailStart <= 36, 'Tail start ' + sg.params.tailStart);
+  ok('T17 Auto finds the 350 ms delay', Math.abs(sg.params.echoTime - 350) <= 15, 'Echo time ' + sg.params.echoTime);
+  ok('T17 Auto Keep and Fade follow the 700 ms spacing', sg.params.keep >= 60 && sg.params.keep <= 110 && sg.params.fade >= 150 && sg.params.fade <= 260, 'Keep ' + sg.params.keep + ', Fade ' + sg.params.fade);
+}
 console.log(fails ? '\n' + fails + ' FAILED' : '\nall passed'); process.exit(fails ? 1 : 0);

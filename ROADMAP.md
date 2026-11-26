@@ -1,8 +1,8 @@
 # Roadmap
 
 Done
-- Detection core in JS (core/tailchaser_core.js), 28 synthetic checks (ripple, clicks, echo vs new sound, echo timing, Center)
-- Design mockup v1.7 (docs/mockups/TailChaser_mockup_v1.7.html): waveform view like a DAW clip (default) with detected tails shaded like a selection, Auto-find tails button, playback keeps going while knobs move (30 ms crossfade), Echo time (Auto or set), Sync to tempo, Center (stereo-aware), octave onset detection, held-note guard
+- Detection core in JS (core/tailchaser_core.js), 32 synthetic checks (ripple, clicks, echo vs new sound, echo timing, Center)
+- Design mockup v1.8 (docs/mockups/TailChaser_mockup_v1.8.html): Auto listens and sets Tail start, Floor, Keep, Fade, Echo time (with Undo), waveform view like a DAW clip (default) with detected tails shaded like a selection, Auto-find tails button, playback keeps going while knobs move (30 ms crossfade), Echo time (Auto or set), Sync to tempo, Center (stereo-aware), octave onset detection, held-note guard
 
 Next
 - Real music tests (needs files from the user)
